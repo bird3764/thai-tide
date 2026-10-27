@@ -39,7 +39,7 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
 
-    <!-- Header / Navbar (Compact for Mobile) -->
+    <!-- Header / Navbar -->
     <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 border-b border-slate-800">
         <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-2.5">
@@ -63,10 +63,10 @@
         </div>
     </header>
 
-    <!-- Main Content Container (Optimized max-w-4xl for mobile/tablet readability) -->
+    <!-- Main Content Container -->
     <main class="max-w-4xl mx-auto px-3 sm:px-4 py-4 space-y-4">
 
-        <!-- Section: ตัวเลือกสถานีและวันที่ (Keep on top for easy reach) -->
+        <!-- Section: ตัวเลือกสถานีและวันที่ -->
         <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
@@ -92,12 +92,12 @@
             </div>
         </div>
 
-        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (2x2 grid for mobile view) -->
+        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง -->
         <div class="grid grid-cols-2 gap-3" id="tideCardsContainer">
             <!-- Populated dynamically -->
         </div>
 
-        <!-- Section: การ์ดสรุปสถานะปัจจุบันและระดับวิกฤต (2 columns) -->
+        <!-- Section: การ์ดสรุปสถานะปัจจุบันและระดับวิกฤต -->
         <div class="grid grid-cols-2 gap-3">
             <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                 <div>
@@ -131,7 +131,7 @@
             </div>
         </div>
 
-        <!-- Section: ข้อมูลแหล่งที่มาและลิงก์ต่างๆ ถูกย้ายมาไว้ด้านล่างสุดทั้งหมด -->
+        <!-- Section: ข้อมูลแหล่งที่มาและลิงก์ต่างๆ -->
         <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
             <div id="sourceBanner" class="bg-blue-500/10 border-l-4 border-blue-500 p-3 rounded-r-lg flex items-center justify-between text-xs">
                 <div class="flex items-center space-x-2">
@@ -241,25 +241,26 @@
             let hours = [];
             let levels = [];
 
-            const rawEvents = data.tides || data.events || [];
+            // รองรับฟิลด์ข้อมูลจาก TidesAtlas API ครบทุกรูปแบบ (tides, events, extremes)
+            const rawEvents = data.tides || data.events || data.extremes || [];
             if (rawEvents.length > 0) {
                 tideEvents = rawEvents.map(ev => {
                     const d = new Date(ev.timestamp || ev.time);
                     return {
                         time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-                        height: parseFloat((ev.height ?? ev.value ?? 0).toFixed(2)),
-                        type: (ev.type || 'high').toLowerCase()
+                        height: parseFloat((ev.height ?? ev.value ?? ev.level ?? 0).toFixed(2)),
+                        type: (ev.type || ev.event || 'high').toLowerCase()
                     };
                 });
             }
 
-            const rawHeights = data.heights || data.hourly || [];
+            const rawHeights = data.heights || data.hourly || data.data || [];
             if (rawHeights.length > 0) {
                 rawHeights.forEach(item => {
                     const d = new Date(item.timestamp || item.time);
                     const time = d.getHours();
                     hours.push(`${String(time).padStart(2, '0')}:00`);
-                    levels.push(parseFloat((item.height ?? item.value ?? 0).toFixed(2)));
+                    levels.push(parseFloat((item.height ?? item.value ?? item.level ?? 0).toFixed(2)));
                 });
             }
 
@@ -302,13 +303,13 @@
 
             if (!levels || levels.length === 0) return;
 
-            // Render Tide Cards (Compact for mobile screen)
+            // Render Tide Cards
             const container = document.getElementById('tideCardsContainer');
             container.innerHTML = '';
             
             if (tideEvents && tideEvents.length > 0) {
                 tideEvents.forEach(ev => {
-                    const isHigh = ev.type === 'high';
+                    const isHigh = ev.type.includes('high') || ev.type.includes('H');
                     const card = `
                         <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                             <div class="flex justify-between items-start">
