@@ -390,7 +390,7 @@
             return { hours, levels, threshold: station.threshold };
         }
 
-        // Improved Astronomical & Hydrographic Model
+        // Dynamic Astronomical Tidal Model (Shifting times daily)
         function calculateLocalNavyModel(dateStr, station) {
             const date = new Date(dateStr);
             const epoch = new Date('2026-01-01T00:00:00Z');
@@ -399,19 +399,17 @@
             const hours = [];
             const levels = [];
 
-            // Moon Phase / Spring-Neap factor (29.53 days lunar month cycle)
+            // Lunar phase shift: Lunar cycle shifts tide times by ~50 mins each day
             const lunarPhase = ((daysSinceEpoch % 29.53) / 29.53) * 2 * Math.PI;
-            const springNeapAmp = 0.25 * Math.cos(2 * lunarPhase); // Spring-Neap variation factor
+            const springNeapAmp = 0.25 * Math.cos(2 * lunarPhase); 
+            const timeShiftHours = (daysSinceEpoch * 0.84) % 12; // Shift phases naturally
 
             for (let h = 0; h < 24; h++) {
-                const totalHours = daysSinceEpoch * 24 + h;
+                const totalHours = daysSinceEpoch * 24 + h - timeShiftHours;
                 const t = totalHours - station.timeOffset;
 
-                // Principal Semi-diurnal M2 (Lunar ~12.42h) & Solar S2 (12h)
                 const m2 = Math.sin((t / 12.42) * 2 * Math.PI);
                 const s2 = 0.3 * Math.sin((t / 12.0) * 2 * Math.PI);
-
-                // Diurnal component (K1 ~23.93h)
                 const k1 = 0.25 * Math.sin((t / 23.93) * 2 * Math.PI + (daysSinceEpoch * 0.0172));
 
                 const midLevel = (station.baseHigh + station.baseLow) / 2;
@@ -562,7 +560,7 @@
             });
         }
 
-        // Render Dynamic 7-Day Forecast Table
+        // Render Dynamic Shifting 7-Day Forecast Table
         function renderForecastTable(stationKey, startDateStr) {
             const tbody = document.getElementById('forecastTableBody');
             tbody.innerHTML = '';
@@ -575,22 +573,20 @@
                 const dateStr = currentDate.toISOString().split('T')[0];
                 const displayDate = currentDate.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
 
-                const { levels } = calculateLocalNavyModel(dateStr, st);
+                const { levels, hours } = calculateLocalNavyModel(dateStr, st);
 
-                // Peak finding algorithm for 24h cycle
                 let peaks = [];
                 let troughs = [];
 
                 for (let h = 1; h < 23; h++) {
                     if (levels[h] > levels[h - 1] && levels[h] > levels[h + 1]) {
-                        peaks.push({ hour: `${String(h).padStart(2, '0')}:00`, val: levels[h] });
+                        peaks.push({ hour: hours[h], val: levels[h] });
                     }
                     if (levels[h] < levels[h - 1] && levels[h] < levels[h + 1]) {
-                        troughs.push({ hour: `${String(h).padStart(2, '0')}:00`, val: levels[h] });
+                        troughs.push({ hour: hours[h], val: levels[h] });
                     }
                 }
 
-                // Fallback peaks if non-diurnal
                 if (peaks.length === 0) peaks.push({ hour: "12:00", val: Math.max(...levels) });
                 if (troughs.length === 0) troughs.push({ hour: "00:00", val: Math.min(...levels) });
 
