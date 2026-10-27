@@ -447,9 +447,50 @@
             document.getElementById('currentLevel').innerText = `${currentLvl.toFixed(2)} m`;
             document.getElementById('currentTrendText').innerText = `สถานะ: น้ำกำลัง${isRising ? 'ขึ้น ⬆' : 'ลง ⬇'}`;
 
-            renderChart(hours, levels, threshold);
+            renderChart(hours, levels, threshold, dateStr);
             renderForecastTable(stationKey, dateStr);
         }
+
+        // Custom Plugin to Draw Current Time Vertical Line
+        const currentLinePlugin = {
+            id: 'currentLinePlugin',
+            afterDraw: (chart) => {
+                const dateSelectVal = document.getElementById('dateSelect').value;
+                const todayStr = new Date().toISOString().split('T')[0];
+                
+                // แสดงเส้นเวลาปัจจุบันเฉพาะเมื่อเลือก "วันปัจจุบัน" เท่านั้น
+                if (dateSelectVal !== todayStr) return;
+
+                const ctx = chart.ctx;
+                const currentHour = new Date().getHours();
+                const timeString = `${String(currentHour).padStart(2, '0')}:00`;
+                const xIndex = chart.data.labels.indexOf(timeString);
+
+                if (xIndex !== -1) {
+                    const meta = chart.getDatasetMeta(0);
+                    if (meta && meta.data[xIndex]) {
+                        const point = meta.data[xIndex];
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(point.x, chart.chartArea.top);
+                        ctx.lineTo(point.x, chart.chartArea.bottom);
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = '#ef4444'; // เส้นสีแดง
+                        ctx.setLineDash([4, 4]); // เส้นประ
+                        ctx.stroke();
+                        ctx.restore();
+
+                        // ข้อความป้ายกำกับ
+                        ctx.save();
+                        ctx.fillStyle = '#ef4444';
+                        ctx.font = 'bold 11px Kanit';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🔴 เวลาปัจจุบัน', point.x, chart.chartArea.top - 8);
+                        ctx.restore();
+                    }
+                }
+            }
+        };
 
         // Render Chart.js
         function renderChart(labels, data, threshold) {
@@ -509,7 +550,8 @@
                             ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } }
                         }
                     }
-                }
+                },
+                plugins: [currentLinePlugin]
             });
         }
 
