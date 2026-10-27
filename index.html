@@ -103,7 +103,7 @@
             </div>
         </div>
 
-        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (สลับเอาความสูงมาไว้ด้านล่างเวลา) -->
+        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (ความสูงอยู่ด้านบน เวลาอยู่ด้านใต้) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tideCardsContainer">
             <!-- Populated dynamically -->
         </div>
@@ -311,7 +311,7 @@
 
             if (!levels || levels.length === 0) return;
 
-            // Render Tide Cards (สลับเอาเวลาขึ้นก่อน และเอาความสูงมาไว้ด้านล่าง)
+            // Render Tide Cards (ความสูงอยู่ด้านบน เวลาอยู่ด้านใต้)
             const container = document.getElementById('tideCardsContainer');
             container.innerHTML = '';
             
@@ -323,13 +323,13 @@
                             <div class="flex justify-between items-start">
                                 <div>
                                     <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${isHigh ? 'น้ำขึ้นสูงสุด (HIGH)' : 'น้ำลงต่ำสุด (LOW)'}</p>
-                                    <h3 class="text-3xl font-extrabold ${isHigh ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} mt-1">${ev.time}</h3>
+                                    <h3 class="text-3xl font-extrabold ${isHigh ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} mt-1">${ev.height.toFixed(2)}m</h3>
                                 </div>
                                 <div class="p-3 ${isHigh ? 'bg-emerald-50 dark:bg-slate-700 text-emerald-500' : 'bg-amber-50 dark:bg-slate-700 text-amber-500'} rounded-xl">
                                     <i class="fa-solid ${isHigh ? 'fa-arrow-up-long' : 'fa-arrow-down-long'} text-xl"></i>
                                 </div>
                             </div>
-                            <p class="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-3">${ev.height.toFixed(2)}m</p>
+                            <p class="text-xs text-slate-500 mt-3">เวลาประมาณ: <span class="font-bold text-slate-700 dark:text-slate-300 text-sm">${ev.time} น.</span></p>
                         </div>
                     `;
                     container.innerHTML += card;
