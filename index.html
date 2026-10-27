@@ -39,127 +39,115 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
 
-    <!-- Header / Navbar -->
-    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50 border-b border-slate-700">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="p-2 bg-blue-600 rounded-lg text-white">
-                    <i class="fa-solid fa-water text-xl"></i>
+    <!-- Header / Navbar (Compact for Mobile) -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 border-b border-slate-800">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2.5">
+                <div class="p-2 bg-blue-600 rounded-xl text-white">
+                    <i class="fa-solid fa-water text-lg"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold leading-tight">ระบบเช็คระดับน้ำขึ้น-น้ำลง</h1>
-                    <p class="text-xs text-slate-400">ข้อมูล TidesAtlas API แม่นยำสูง</p>
+                    <h1 class="text-base sm:text-lg font-bold leading-tight">เช็คระดับน้ำชายฝั่ง</h1>
+                    <p class="text-[10px] text-slate-400">TidesAtlas API & Thai Navy Model</p>
                 </div>
             </div>
             
             <div class="flex items-center space-x-2">
-                <button id="apiKeyBtn" class="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-xs font-semibold text-white transition-colors flex items-center">
-                    <i class="fa-solid fa-key mr-1.5"></i> Set API Key
+                <button id="apiKeyBtn" class="px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-xs font-semibold text-white transition-colors flex items-center">
+                    <i class="fa-solid fa-key mr-1"></i> API Key
                 </button>
                 <button id="themeToggle" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
-                    <i class="fa-solid fa-moon text-lg" id="themeIcon"></i>
+                    <i class="fa-solid fa-moon text-base" id="themeIcon"></i>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Content Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- Main Content Container (Optimized max-w-4xl for mobile/tablet readability) -->
+    <main class="max-w-4xl mx-auto px-3 sm:px-4 py-4 space-y-4">
 
-        <!-- Status Indicator Banner -->
-        <div id="sourceBanner" class="bg-blue-500/10 border-l-4 border-blue-500 p-3.5 rounded-r-lg shadow-sm flex items-center justify-between text-xs sm:text-sm">
-            <div class="flex items-center space-x-2">
-                <i class="fa-solid fa-circle-info text-blue-500 text-base"></i>
-                <span id="sourceText" class="font-medium">แหล่งข้อมูล: <b>กำลังโหลดข้อมูล...</b></span>
+        <!-- Section: ตัวเลือกสถานีและวันที่ (Keep on top for easy reach) -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+                    <i class="fa-solid fa-location-dot text-blue-500 mr-1"></i> เลือกสถานีหลักในประเทศไทย
+                </label>
+                <select id="stationSelect" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="samutprakan">ป้อมพระจุลจอมเกล้า (สมุทรปราการ)</option>
+                    <option value="bangkok">กองบัญชาการกองทัพเรือ / สะพานพุทธ (กรุงเทพฯ)</option>
+                    <option value="bangpakong">ปากแม่น้ำบางปะกง (ฉะเชิงเทรา)</option>
+                    <option value="chonburi">เกาะลอย / ศรีราชา (ชลบุรี)</option>
+                    <option value="pattaya">พัทยา (ชลบุรี)</option>
+                    <option value="laemchabang">แหลมฉบัง (ชลบุรี)</option>
+                    <option value="huahin">หัวหิน (ประจวบคีรีขันธ์)</option>
+                    <option value="phuket">อ่าวฉลอง (ภูเก็ต)</option>
+                </select>
             </div>
-            <span id="apiStatusBadge" class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs font-bold text-slate-600 dark:text-slate-300">Checking</span>
-        </div>
 
-        <!-- Section: ตัวเลือกสถานีและวันที่ -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                        <i class="fa-solid fa-location-dot text-blue-500 mr-1"></i> เลือกสถานีหลักในประเทศไทย
-                    </label>
-                    <select id="stationSelect" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="samutprakan">ป้อมพระจุลจอมเกล้า (สมุทรปราการ)</option>
-                        <option value="bangkok">กองบัญชาการกองทัพเรือ / สะพานพุทธ (กรุงเทพฯ)</option>
-                        <option value="bangpakong">ปากแม่น้ำบางปะกง (ฉะเชิงเทรา)</option>
-                        <option value="chonburi">เกาะลอย / ศรีราชา (ชลบุรี)</option>
-                        <option value="pattaya">พัทยา (ชลบุรี)</option>
-                        <option value="laemchabang">แหลมฉบัง (ชลบุรี)</option>
-                        <option value="huahin">หัวหิน (ประจวบคีรีขันธ์)</option>
-                        <option value="phuket">อ่าวฉลอง (ภูเก็ต)</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                        <i class="fa-regular fa-calendar-days text-blue-500 mr-1"></i> เลือกวันที่
-                    </label>
-                    <input type="date" id="dateSelect" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
+                    <i class="fa-regular fa-calendar-days text-blue-500 mr-1"></i> เลือกวันที่
+                </label>
+                <input type="date" id="dateSelect" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
 
-        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (ความสูงอยู่บน เวลาอยู่ด้านใต้) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tideCardsContainer">
+        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (2x2 grid for mobile view) -->
+        <div class="grid grid-cols-2 gap-3" id="tideCardsContainer">
             <!-- Populated dynamically -->
         </div>
 
-        <!-- Section: การ์ดสรุปสถานะปัจจุบันและระดับวิกฤต -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+        <!-- Section: การ์ดสรุปสถานะปัจจุบันและระดับวิกฤต (2 columns) -->
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับน้ำโดยประมาณตอนนี้</p>
-                    <h3 class="text-3xl font-extrabold text-blue-600 dark:text-blue-400 mt-1" id="currentLevel">-- m</h3>
-                    <p class="text-xs text-slate-500 mt-1" id="currentTrendText">สถานะ: --</p>
+                    <p class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับน้ำตอนนี้</p>
+                    <h3 class="text-xl sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5" id="currentLevel">-- m</h3>
                 </div>
-                <div class="p-3 bg-blue-50 dark:bg-slate-700 rounded-xl text-blue-500">
-                    <i class="fa-solid fa-gauge-high text-2xl"></i>
-                </div>
+                <p class="text-[11px] text-slate-500 mt-2" id="currentTrendText">สถานะ: --</p>
             </div>
 
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับวิกฤตตลิ่ง</p>
-                    <h3 class="text-3xl font-extrabold text-red-600 dark:text-red-400 mt-1" id="thresholdLevel">3.40 m</h3>
-                    <p class="text-xs text-slate-500 mt-1">อ้างอิงระดับ รทก.</p>
+                    <p class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับวิกฤตตลิ่ง</p>
+                    <h3 class="text-xl sm:text-2xl font-extrabold text-red-600 dark:text-red-400 mt-0.5" id="thresholdLevel">3.40 m</h3>
                 </div>
-                <div class="p-3 bg-red-50 dark:bg-slate-700 rounded-xl text-red-500">
-                    <i class="fa-solid fa-shield-halved text-2xl"></i>
-                </div>
+                <p class="text-[11px] text-slate-500 mt-2">อ้างอิงระดับ รทก.</p>
             </div>
         </div>
 
         <!-- Section: กราฟระดับน้ำรายชั่วโมง -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-bold flex items-center">
-                    <i class="fa-solid fa-chart-line text-blue-500 mr-2"></i> กราฟพยากรณ์ระดับน้ำรายชั่วโมง (24 ชม.)
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm sm:text-base font-bold flex items-center">
+                    <i class="fa-solid fa-chart-line text-blue-500 mr-1.5"></i> กราฟระดับน้ำ (24 ชม.)
                 </h2>
-                <span class="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold px-2.5 py-1 rounded-full">
-                    หน่วย: เมตร (ม.รทก.)
+                <span class="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">
+                    ม.รทก.
                 </span>
             </div>
-            <div class="relative h-72 sm:h-96 w-full">
+            <div class="relative h-64 sm:h-80 w-full">
                 <canvas id="tideChart"></canvas>
             </div>
         </div>
 
-        <!-- Section: Footer -->
-        <footer class="bg-slate-800 text-slate-300 rounded-2xl p-6 text-center shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="text-left">
-                <p class="text-sm font-semibold">ระบบเช็คระดับน้ำขึ้น-น้ำลงชายฝั่งทะเลไทย</p>
-                <p class="text-xs text-slate-400">รองรับ TidesAtlas API</p>
+        <!-- Section: ข้อมูลแหล่งที่มาและลิงก์ต่างๆ ถูกย้ายมาไว้ด้านล่างสุดทั้งหมด -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+            <div id="sourceBanner" class="bg-blue-500/10 border-l-4 border-blue-500 p-3 rounded-r-lg flex items-center justify-between text-xs">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-info text-blue-500 text-sm"></i>
+                    <span id="sourceText" class="font-medium">แหล่งข้อมูล: <b>กำลังโหลด...</b></span>
+                </div>
+                <span id="apiStatusBadge" class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300">Checking</span>
             </div>
-            <div class="flex space-x-3">
-                <a href="https://tidesatlas.com/api/docs" target="_blank" class="inline-flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-white font-medium px-3 py-2 rounded-xl transition-colors">
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                <p class="text-xs text-slate-500">ระบบเช็คระดับน้ำขึ้น-น้ำลงชายฝั่งทะเลไทย รองรับ TidesAtlas API</p>
+                <a href="https://tidesatlas.com/api/docs" target="_blank" class="inline-flex items-center text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium px-3 py-1.5 rounded-xl transition-colors">
                     <i class="fa-solid fa-book mr-1.5"></i> TidesAtlas Docs
                 </a>
             </div>
-        </footer>
+        </div>
 
     </main>
 
@@ -240,10 +228,10 @@
             const badge = document.getElementById('apiStatusBadge');
             sourceText.innerHTML = `แหล่งข้อมูล: <b>${text}</b>`;
             if (isLive) {
-                badge.className = "bg-emerald-500 text-white px-2 py-0.5 rounded text-xs font-bold";
+                badge.className = "bg-emerald-500 text-white px-2 py-0.5 rounded text-[10px] font-bold";
                 badge.innerText = "LIVE API";
             } else {
-                badge.className = "bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs font-bold text-slate-600 dark:text-slate-300";
+                badge.className = "bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-[10px] font-bold text-slate-600 dark:text-slate-300";
                 badge.innerText = "LOCAL MODEL";
             }
         }
@@ -253,7 +241,6 @@
             let hours = [];
             let levels = [];
 
-            // รองรับรูปแบบฟิลด์ข้อมูลที่หลากหลายจาก TidesAtlas API (tides หรือ events)
             const rawEvents = data.tides || data.events || [];
             if (rawEvents.length > 0) {
                 tideEvents = rawEvents.map(ev => {
@@ -315,7 +302,7 @@
 
             if (!levels || levels.length === 0) return;
 
-            // Render Tide Cards (ความสูงอยู่ด้านบน ตัวใหญ่ / เวลาอยู่ด้านใต้)
+            // Render Tide Cards (Compact for mobile screen)
             const container = document.getElementById('tideCardsContainer');
             container.innerHTML = '';
             
@@ -323,17 +310,17 @@
                 tideEvents.forEach(ev => {
                     const isHigh = ev.type === 'high';
                     const card = `
-                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${isHigh ? 'น้ำขึ้นสูงสุด (HIGH)' : 'น้ำลงต่ำสุด (LOW)'}</p>
-                                    <h3 class="text-3xl font-extrabold ${isHigh ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} mt-1">${ev.height.toFixed(2)}m</h3>
+                                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">${isHigh ? 'น้ำขึ้นสูงสุด' : 'น้ำลงต่ำสุด'}</p>
+                                    <h3 class="text-xl sm:text-2xl font-extrabold ${isHigh ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} mt-0.5">${ev.height.toFixed(2)}m</h3>
                                 </div>
-                                <div class="p-3 ${isHigh ? 'bg-emerald-50 dark:bg-slate-700 text-emerald-500' : 'bg-amber-50 dark:bg-slate-700 text-amber-500'} rounded-xl">
-                                    <i class="fa-solid ${isHigh ? 'fa-arrow-up-long' : 'fa-arrow-down-long'} text-xl"></i>
+                                <div class="p-2 ${isHigh ? 'bg-emerald-50 dark:bg-slate-700 text-emerald-500' : 'bg-amber-50 dark:bg-slate-700 text-amber-500'} rounded-xl">
+                                    <i class="fa-solid ${isHigh ? 'fa-arrow-up-long' : 'fa-arrow-down-long'} text-sm"></i>
                                 </div>
                             </div>
-                            <p class="text-xs text-slate-500 mt-3">เวลา: <span class="font-bold text-slate-700 dark:text-slate-300 text-sm">${ev.time} น.</span></p>
+                            <p class="text-[11px] text-slate-500 mt-2">เวลา: <span class="font-bold text-slate-700 dark:text-slate-300 text-xs">${ev.time} น.</span></p>
                         </div>
                     `;
                     container.innerHTML += card;
@@ -381,9 +368,9 @@
 
                         ctx.save();
                         ctx.fillStyle = '#ef4444';
-                        ctx.font = 'bold 11px Kanit';
+                        ctx.font = 'bold 10px Kanit';
                         ctx.textAlign = 'center';
-                        ctx.fillText('🔴 เวลาปัจจุบัน', point.x, chart.chartArea.top - 8);
+                        ctx.fillText('🔴 ปัจจุบัน', point.x, chart.chartArea.top - 6);
                         ctx.restore();
                     }
                 }
@@ -406,18 +393,18 @@
                             data: data,
                             borderColor: '#2563eb',
                             backgroundColor: 'rgba(37, 99, 235, 0.15)',
-                            borderWidth: 3,
+                            borderWidth: 2.5,
                             fill: true,
                             tension: 0.4,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
+                            pointRadius: 3,
+                            pointHoverRadius: 5
                         },
                         {
                             label: 'ระดับวิกฤตตลิ่ง',
                             data: Array(labels.length).fill(threshold),
                             borderColor: '#ef4444',
                             borderWidth: 2,
-                            borderDash: [6, 6],
+                            borderDash: [5, 5],
                             pointRadius: 0,
                             fill: false
                         }
@@ -427,11 +414,11 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { labels: { color: isDark ? '#cbd5e1' : '#475569', font: { family: 'Kanit' } } }
+                        legend: { labels: { color: isDark ? '#cbd5e1' : '#475569', font: { family: 'Kanit', size: 11 } } }
                     },
                     scales: {
-                        x: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } } },
-                        y: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } } }
+                        x: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit', size: 10 } } },
+                        y: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit', size: 10 } } }
                     }
                 },
                 plugins: [currentLinePlugin]
@@ -451,7 +438,7 @@
         themeToggle.addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
             const isDark = document.documentElement.classList.contains('dark');
-            themeIcon.className = isDark ? 'fa-solid fa-sun text-lg' : 'fa-solid fa-moon text-lg';
+            themeIcon.className = isDark ? 'fa-solid fa-sun text-base' : 'fa-solid fa-moon text-base';
             updateDashboard();
         });
 
