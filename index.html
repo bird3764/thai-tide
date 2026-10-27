@@ -103,7 +103,7 @@
             </div>
         </div>
 
-        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (ความสูงอยู่ด้านบน เวลาอยู่ด้านใต้) -->
+        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (ความสูงอยู่บน เวลาอยู่ด้านใต้) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tideCardsContainer">
             <!-- Populated dynamically -->
         </div>
@@ -253,22 +253,26 @@
             let hours = [];
             let levels = [];
 
-            if (data && data.tides) {
-                tideEvents = data.tides.map(ev => {
-                    const d = new Date(ev.timestamp);
+            // รองรับรูปแบบฟิลด์ข้อมูลที่หลากหลายจาก TidesAtlas API (tides หรือ events)
+            const rawEvents = data.tides || data.events || [];
+            if (rawEvents.length > 0) {
+                tideEvents = rawEvents.map(ev => {
+                    const d = new Date(ev.timestamp || ev.time);
                     return {
                         time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-                        height: parseFloat(ev.height.toFixed(2)),
-                        type: ev.type.toLowerCase()
+                        height: parseFloat((ev.height ?? ev.value ?? 0).toFixed(2)),
+                        type: (ev.type || 'high').toLowerCase()
                     };
                 });
             }
 
-            if (data && data.heights) {
-                data.heights.forEach(item => {
-                    const time = new Date(item.timestamp).getHours();
+            const rawHeights = data.heights || data.hourly || [];
+            if (rawHeights.length > 0) {
+                rawHeights.forEach(item => {
+                    const d = new Date(item.timestamp || item.time);
+                    const time = d.getHours();
                     hours.push(`${String(time).padStart(2, '0')}:00`);
-                    levels.push(parseFloat(item.height.toFixed(2)));
+                    levels.push(parseFloat((item.height ?? item.value ?? 0).toFixed(2)));
                 });
             }
 
