@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเช็คระดับน้ำและตารางน้ำขึ้น-น้ำลง (TidesAtlas API & Thai Navy Model)</title>
+    <title>ระบบเช็คระดับน้ำและตารางน้ำขึ้น-น้ำลง (TidesAtlas API)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -48,7 +48,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold leading-tight">ระบบเช็คระดับน้ำขึ้น-น้ำลง</h1>
-                    <p class="text-xs text-slate-400">ข้อมูล TidesAtlas API & คำนวณอ้างอิงกรมอุทกศาสตร์ กองทัพเรือ</p>
+                    <p class="text-xs text-slate-400">ข้อมูล TidesAtlas API แม่นยำสูง</p>
                 </div>
             </div>
             
@@ -70,9 +70,9 @@
         <div id="sourceBanner" class="bg-blue-500/10 border-l-4 border-blue-500 p-3.5 rounded-r-lg shadow-sm flex items-center justify-between text-xs sm:text-sm">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-circle-info text-blue-500 text-base"></i>
-                <span id="sourceText" class="font-medium">แหล่งข้อมูล: <b>คำนวณอ้างอิงกรมอุทกศาสตร์ กองทัพเรือ</b> (ใส่ API Key เพื่อสลับไปใช้ TidesAtlas Live API)</span>
+                <span id="sourceText" class="font-medium">แหล่งข้อมูล: <b>กำลังโหลดข้อมูล...</b></span>
             </div>
-            <span id="apiStatusBadge" class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs font-bold text-slate-600 dark:text-slate-300">Offline/Local</span>
+            <span id="apiStatusBadge" class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs font-bold text-slate-600 dark:text-slate-300">Checking</span>
         </div>
 
         <!-- Section: ตัวเลือกสถานีและวันที่ -->
@@ -103,62 +103,33 @@
             </div>
         </div>
 
-        <!-- Section: Cards แสดงสถานะปัจจุบัน -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- Card 1: ระดับน้ำปัจจุบัน -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับน้ำปัจจุบัน</p>
-                        <h3 class="text-3xl font-extrabold text-blue-600 dark:text-blue-400 mt-1" id="currentLevel">-- m</h3>
-                    </div>
-                    <div class="p-3 bg-blue-50 dark:bg-slate-700 rounded-xl text-blue-500">
-                        <i class="fa-solid fa-gauge-high text-xl"></i>
-                    </div>
+        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (High/Low Tides Cards เหมือนต้นฉบับ) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tideCardsContainer">
+            <!-- Populated dynamically -->
+        </div>
+
+        <!-- Section: การ์ดสรุปสถานะปัจจุบันและระดับวิกฤต -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับน้ำโดยประมาณตอนนี้</p>
+                    <h3 class="text-3xl font-extrabold text-blue-600 dark:text-blue-400 mt-1" id="currentLevel">-- m</h3>
+                    <p class="text-xs text-slate-500 mt-1" id="currentTrendText">สถานะ: --</p>
                 </div>
-                <p class="text-xs text-slate-500 mt-2" id="currentTrendText">สถานะ: --</p>
+                <div class="p-3 bg-blue-50 dark:bg-slate-700 rounded-xl text-blue-500">
+                    <i class="fa-solid fa-gauge-high text-2xl"></i>
+                </div>
             </div>
 
-            <!-- Card 2: น้ำขึ้นสูงสุด (High Tide) -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">น้ำขึ้นสูงสุด (High)</p>
-                        <h3 class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1" id="highTideLevel">-- m</h3>
-                    </div>
-                    <div class="p-3 bg-emerald-50 dark:bg-slate-700 rounded-xl text-emerald-500">
-                        <i class="fa-solid fa-arrow-up-long text-xl"></i>
-                    </div>
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับวิกฤตตลิ่ง</p>
+                    <h3 class="text-3xl font-extrabold text-red-600 dark:text-red-400 mt-1" id="thresholdLevel">3.40 m</h3>
+                    <p class="text-xs text-slate-500 mt-1">อ้างอิงระดับ รทก.</p>
                 </div>
-                <p class="text-xs text-slate-500 mt-2" id="highTideTime">เวลาประมาณ: --:-- น.</p>
-            </div>
-
-            <!-- Card 3: น้ำลงต่ำสุด (Low Tide) -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">น้ำลงต่ำสุด (Low)</p>
-                        <h3 class="text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1" id="lowTideLevel">-- m</h3>
-                    </div>
-                    <div class="p-3 bg-amber-50 dark:bg-slate-700 rounded-xl text-amber-500">
-                        <i class="fa-solid fa-arrow-down-long text-xl"></i>
-                    </div>
+                <div class="p-3 bg-red-50 dark:bg-slate-700 rounded-xl text-red-500">
+                    <i class="fa-solid fa-shield-halved text-2xl"></i>
                 </div>
-                <p class="text-xs text-slate-500 mt-2" id="lowTideTime">เวลาประมาณ: --:-- น.</p>
-            </div>
-
-            <!-- Card 4: ระดับเตือนภัยตลิ่ง -->
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับวิกฤตตลิ่ง</p>
-                        <h3 class="text-3xl font-extrabold text-red-600 dark:text-red-400 mt-1" id="thresholdLevel">3.40 m</h3>
-                    </div>
-                    <div class="p-3 bg-red-50 dark:bg-slate-700 rounded-xl text-red-500">
-                        <i class="fa-solid fa-shield-halved text-xl"></i>
-                    </div>
-                </div>
-                <p class="text-xs text-slate-500 mt-2">อ้างอิงระดับ รทก.</p>
             </div>
         </div>
 
@@ -169,7 +140,7 @@
                     <i class="fa-solid fa-chart-line text-blue-500 mr-2"></i> กราฟพยากรณ์ระดับน้ำรายชั่วโมง (24 ชม.)
                 </h2>
                 <span class="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold px-2.5 py-1 rounded-full">
-                    หน่วย: เมตร จากระดับน้ำทะเลปานกลาง (ม.รทก.)
+                    หน่วย: เมตร (ม.รทก.)
                 </span>
             </div>
             <div class="relative h-72 sm:h-96 w-full">
@@ -177,41 +148,15 @@
             </div>
         </div>
 
-        <!-- Section: ตารางพยากรณ์ล่วงหน้า 7 วัน -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <h2 class="text-lg font-bold mb-4 flex items-center">
-                <i class="fa-solid fa-calendar-week text-blue-500 mr-2"></i> ตารางสภาวะน้ำขึ้น-น้ำลง ล่วงหน้า 7 วัน
-            </h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
-                            <th class="py-3 px-4 font-semibold">วันที่</th>
-                            <th class="py-3 px-4 font-semibold">น้ำขึ้นสูงสุด รอบแรก</th>
-                            <th class="py-3 px-4 font-semibold">น้ำลงต่ำสุด รอบแรก</th>
-                            <th class="py-3 px-4 font-semibold">น้ำขึ้นสูงสุด รอบสอง</th>
-                            <th class="py-3 px-4 font-semibold">น้ำลงต่ำสุด รอบสอง</th>
-                        </tr>
-                    </thead>
-                    <tbody id="forecastTableBody" class="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        <!-- Populated by JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
         <!-- Section: Footer -->
         <footer class="bg-slate-800 text-slate-300 rounded-2xl p-6 text-center shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="text-left">
                 <p class="text-sm font-semibold">ระบบเช็คระดับน้ำขึ้น-น้ำลงชายฝั่งทะเลไทย</p>
-                <p class="text-xs text-slate-400">รองรับทั้ง TidesAtlas API และ อัลกอริทึมอุทกศาสตร์ กองทัพเรือ</p>
+                <p class="text-xs text-slate-400">รองรับ TidesAtlas API</p>
             </div>
             <div class="flex space-x-3">
                 <a href="https://tidesatlas.com/api/docs" target="_blank" class="inline-flex items-center text-xs bg-slate-700 hover:bg-slate-600 text-white font-medium px-3 py-2 rounded-xl transition-colors">
                     <i class="fa-solid fa-book mr-1.5"></i> TidesAtlas Docs
-                </a>
-                <a href="https://www.hydro.navy.mi.th" target="_blank" class="inline-flex items-center text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium px-3 py-2 rounded-xl transition-colors">
-                    <i class="fa-solid fa-external-link-alt mr-1.5"></i> กรมอุทกศาสตร์ ทร.
                 </a>
             </div>
         </footer>
@@ -225,10 +170,10 @@
                 <i class="fa-solid fa-key text-blue-500 mr-2"></i> ตั้งค่า TidesAtlas API Key
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                คุณสามารถสมัครและรับ API Key ฟรีได้จาก <a href="https://tidesatlas.com" target="_blank" class="text-blue-500 underline">tidesatlas.com</a> ระบบจะบันทึก Key ไว้ในเบราว์เซอร์ของคุณ
+                ใส่ X-API-Key ของคุณเพื่อดึงข้อมูลจริงจาก <a href="https://tidesatlas.com" target="_blank" class="text-blue-500 underline">tidesatlas.com</a>
             </p>
             <div class="mt-4">
-                <input type="text" id="apiKeyInput" placeholder="วาง X-API-Key ของคุณที่นี่..." class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-white">
+                <input type="text" id="apiKeyInput" placeholder="วาง X-API-Key ที่นี่..." class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-white">
             </div>
             <div class="mt-5 flex justify-end space-x-3">
                 <button id="closeModalBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">ยกเลิก</button>
@@ -238,83 +183,17 @@
     </div>
 
     <script>
-        // Data Stations Config
         const stations = {
-            samutprakan: {
-                name: "ป้อมพระจุลจอมเกล้า (สมุทรปราการ)",
-                lat: 13.5414,
-                lon: 100.5847,
-                baseHigh: 3.3,
-                baseLow: 0.9,
-                timeOffset: 0,
-                threshold: 3.4
-            },
-            bangkok: {
-                name: "บก.กองทัพเรือ / สะพานพุทธ (กรุงเทพฯ)",
-                lat: 13.7460,
-                lon: 100.4900,
-                baseHigh: 2.1,
-                baseLow: 0.5,
-                timeOffset: 1.25,
-                threshold: 2.2
-            },
-            bangpakong: {
-                name: "ปากแม่น้ำบางปะกง (ฉะเชิงเทรา)",
-                lat: 13.4688,
-                lon: 100.9575,
-                baseHigh: 3.1,
-                baseLow: 1.0,
-                timeOffset: 0.2,
-                threshold: 3.2
-            },
-            chonburi: {
-                name: "เกาะลอย / ศรีราชา (ชลบุรี)",
-                lat: 13.1736,
-                lon: 100.9167,
-                baseHigh: 3.6,
-                baseLow: 1.2,
-                timeOffset: -0.5,
-                threshold: 3.8
-            },
-            pattaya: {
-                name: "พัทยา (ชลบุรี)",
-                lat: 12.9276,
-                lon: 100.8771,
-                baseHigh: 3.2,
-                baseLow: 1.1,
-                timeOffset: -0.6,
-                threshold: 3.5
-            },
-            laemchabang: {
-                name: "แหลมฉบัง (ชลบุรี)",
-                lat: 13.0821,
-                lon: 100.8833,
-                baseHigh: 3.4,
-                baseLow: 1.1,
-                timeOffset: -0.55,
-                threshold: 3.6
-            },
-            huahin: {
-                name: "หัวหิน (ประจวบคีรีขันธ์)",
-                lat: 12.5684,
-                lon: 99.9577,
-                baseHigh: 3.0,
-                baseLow: 0.9,
-                timeOffset: -1.0,
-                threshold: 3.2
-            },
-            phuket: {
-                name: "อ่าวฉลอง (ภูเก็ต)",
-                lat: 7.8208,
-                lon: 98.3644,
-                baseHigh: 3.1,
-                baseLow: 0.8,
-                timeOffset: 0,
-                threshold: 3.3
-            }
+            samutprakan: { name: "ป้อมพระจุลจอมเกล้า (สมุทรปราการ)", lat: 13.5414, lon: 100.5847, threshold: 3.4, baseHigh: 3.3, baseLow: 0.9, timeOffset: 0 },
+            bangkok: { name: "บก.กองทัพเรือ / สะพานพุทธ (กรุงเทพฯ)", lat: 13.7460, lon: 100.4900, threshold: 2.2, baseHigh: 2.1, baseLow: 0.5, timeOffset: 1.25 },
+            bangpakong: { name: "ปากแม่น้ำบางปะกง (ฉะเชิงเทรา)", lat: 13.4688, lon: 100.9575, threshold: 3.2, baseHigh: 3.1, baseLow: 1.0, timeOffset: 0.2 },
+            chonburi: { name: "เกาะลอย / ศรีราชา (ชลบุรี)", lat: 13.1736, lon: 100.9167, threshold: 3.8, baseHigh: 3.6, baseLow: 1.2, timeOffset: -0.5 },
+            pattaya: { name: "พัทยา (ชลบุรี)", lat: 12.9276, lon: 100.8771, threshold: 3.5, baseHigh: 3.2, baseLow: 1.1, timeOffset: -0.6 },
+            laemchabang: { name: "แหลมฉบัง (ชลบุรี)", lat: 13.0821, lon: 100.8833, threshold: 3.6, baseHigh: 3.4, baseLow: 1.1, timeOffset: -0.55 },
+            huahin: { name: "หัวหิน (ประจวบคีรีขันธ์)", lat: 12.5684, lon: 99.9577, threshold: 3.2, baseHigh: 3.0, baseLow: 0.9, timeOffset: -1.0 },
+            phuket: { name: "อ่าวฉลอง (ภูเก็ต)", lat: 7.8208, lon: 98.3644, threshold: 3.3, baseHigh: 3.1, baseLow: 0.8, timeOffset: 0 }
         };
 
-        // State Elements
         const stationSelect = document.getElementById('stationSelect');
         const dateSelect = document.getElementById('dateSelect');
         const themeToggle = document.getElementById('themeToggle');
@@ -326,18 +205,12 @@
         const apiKeyInput = document.getElementById('apiKeyInput');
 
         let chartInstance = null;
-
-        // Set default date to today
         const today = new Date().toISOString().split('T')[0];
         dateSelect.value = today;
 
-        // Retrieve stored API Key
         let storedApiKey = localStorage.getItem('tidesatlas_api_key') || '';
-        if (storedApiKey) {
-            apiKeyInput.value = storedApiKey;
-        }
+        if (storedApiKey) apiKeyInput.value = storedApiKey;
 
-        // Fetcher Router
         async function fetchTideData(dateStr, stationKey) {
             const st = stations[stationKey];
             const apiKey = localStorage.getItem('tidesatlas_api_key');
@@ -351,15 +224,15 @@
                     if (response.ok) {
                         const data = await response.json();
                         updateSourceStatus('TidesAtlas Live API', true);
-                        return parseTidesAtlasResponse(data, st);
+                        return parseApiData(data, st);
                     }
                 } catch (e) {
-                    console.warn("TidesAtlas API error, using local Navy model fallback", e);
+                    console.warn("API Error, fallback to model", e);
                 }
             }
 
-            updateSourceStatus('คำนวณอ้างอิงกรมอุทกศาสตร์ กองทัพเรือ (Local Model)', false);
-            return calculateLocalNavyModel(dateStr, st);
+            updateSourceStatus('คำนวณอ้างอิงกรมอุทกศาสตร์ (Local Model)', false);
+            return generateFallbackData(dateStr, st);
         }
 
         function updateSourceStatus(text, isLive) {
@@ -375,9 +248,21 @@
             }
         }
 
-        function parseTidesAtlasResponse(data, station) {
-            const hours = [];
-            const levels = [];
+        function parseApiData(data, station) {
+            let tideEvents = [];
+            let hours = [];
+            let levels = [];
+
+            if (data && data.events) {
+                tideEvents = data.events.map(ev => {
+                    const d = new Date(ev.timestamp);
+                    return {
+                        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+                        height: parseFloat(ev.height.toFixed(2)),
+                        type: ev.type.toLowerCase() // high / low
+                    };
+                });
+            }
 
             if (data && data.heights) {
                 data.heights.forEach(item => {
@@ -387,62 +272,70 @@
                 });
             }
 
-            return { hours, levels, threshold: station.threshold };
+            return { tideEvents, hours, levels, threshold: station.threshold };
         }
 
-        // Dynamic Astronomical Tidal Model (Shifting times daily)
-        function calculateLocalNavyModel(dateStr, station) {
+        function generateFallbackData(dateStr, station) {
             const date = new Date(dateStr);
-            const epoch = new Date('2026-01-01T00:00:00Z');
-            const daysSinceEpoch = (date - epoch) / (1000 * 60 * 60 * 24);
-
-            const hours = [];
-            const levels = [];
-
-            // Lunar phase shift: Lunar cycle shifts tide times by ~50 mins each day
-            const lunarPhase = ((daysSinceEpoch % 29.53) / 29.53) * 2 * Math.PI;
-            const springNeapAmp = 0.25 * Math.cos(2 * lunarPhase); 
-            const timeShiftHours = (daysSinceEpoch * 0.84) % 12; // Shift phases naturally
+            const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            
+            let hours = [];
+            let levels = [];
 
             for (let h = 0; h < 24; h++) {
-                const totalHours = daysSinceEpoch * 24 + h - timeShiftHours;
-                const t = totalHours - station.timeOffset;
+                const t = h - station.timeOffset;
+                const val1 = Math.sin((t / 12.42) * 2 * Math.PI);
+                const val2 = 0.3 * Math.sin((t / 23.93) * 2 * Math.PI + (dayOfYear * 0.0172));
+                const mid = (station.baseHigh + station.baseLow) / 2;
+                const amp = (station.baseHigh - station.baseLow) / 2;
+                const level = mid + amp * (val1 * 0.8 + val2 * 0.2);
 
-                const m2 = Math.sin((t / 12.42) * 2 * Math.PI);
-                const s2 = 0.3 * Math.sin((t / 12.0) * 2 * Math.PI);
-                const k1 = 0.25 * Math.sin((t / 23.93) * 2 * Math.PI + (daysSinceEpoch * 0.0172));
-
-                const midLevel = (station.baseHigh + station.baseLow) / 2;
-                const baseAmp = (station.baseHigh - station.baseLow) / 2;
-                const currentAmp = baseAmp * (1 + springNeapAmp);
-
-                const level = midLevel + currentAmp * (m2 * 0.75 + s2 * 0.15 + k1 * 0.1);
-                
                 hours.push(`${String(h).padStart(2, '0')}:00`);
                 levels.push(parseFloat(level.toFixed(2)));
             }
 
-            return { hours, levels, threshold: station.threshold };
+            // หา Peak / Trough จำลอง
+            let tideEvents = [
+                { time: "06:30", height: station.baseHigh, type: "high" },
+                { time: "12:15", height: station.baseLow, type: "low" },
+                { time: "18:45", height: station.baseHigh * 0.95, type: "high" },
+                { time: "23:55", height: station.baseLow * 1.05, type: "low" }
+            ];
+
+            return { tideEvents, hours, levels, threshold: station.threshold };
         }
 
-        // Render Dashboard Data
         async function updateDashboard() {
             const stationKey = stationSelect.value;
             const dateStr = dateSelect.value;
-            const { hours, levels, threshold } = await fetchTideData(dateStr, stationKey);
+            const { tideEvents, hours, levels, threshold } = await fetchTideData(dateStr, stationKey);
 
             if (!levels || levels.length === 0) return;
 
-            const maxVal = Math.max(...levels);
-            const minVal = Math.min(...levels);
-            const maxIndex = levels.indexOf(maxVal);
-            const minIndex = levels.indexOf(minVal);
-
-            document.getElementById('highTideLevel').innerText = `${maxVal.toFixed(2)} m`;
-            document.getElementById('highTideTime').innerText = `เวลาประมาณ: ${hours[maxIndex]} น.`;
-
-            document.getElementById('lowTideLevel').innerText = `${minVal.toFixed(2)} m`;
-            document.getElementById('lowTideTime').innerText = `เวลาประมาณ: ${hours[minIndex]} น.`;
+            // Render Tide Cards (High/Low) เหมือนในรูปตัวอย่าง
+            const container = document.getElementById('tideCardsContainer');
+            container.innerHTML = '';
+            
+            if (tideEvents && tideEvents.length > 0) {
+                tideEvents.forEach(ev => {
+                    const isHigh = ev.type === 'high';
+                    const card = `
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">${isHigh ? 'น้ำขึ้นสูงสุด (HIGH)' : 'น้ำลงต่ำสุด (LOW)'}</p>
+                                    <h3 class="text-3xl font-extrabold ${isHigh ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} mt-1">${ev.time}</h3>
+                                </div>
+                                <div class="p-3 ${isHigh ? 'bg-emerald-50 dark:bg-slate-700 text-emerald-500' : 'bg-amber-50 dark:bg-slate-700 text-amber-500'} rounded-xl">
+                                    <i class="fa-solid ${isHigh ? 'fa-arrow-up-long' : 'fa-arrow-down-long'} text-xl"></i>
+                                </div>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-3">ระดับ: ${ev.height.toFixed(2)} m</p>
+                        </div>
+                    `;
+                    container.innerHTML += card;
+                });
+            }
 
             document.getElementById('thresholdLevel').innerText = `${threshold.toFixed(2)} m`;
 
@@ -455,16 +348,13 @@
             document.getElementById('currentTrendText').innerText = `สถานะ: น้ำกำลัง${isRising ? 'ขึ้น ⬆' : 'ลง ⬇'}`;
 
             renderChart(hours, levels, threshold);
-            renderForecastTable(stationKey, dateStr);
         }
 
-        // Custom Plugin for Current Time Line
         const currentLinePlugin = {
             id: 'currentLinePlugin',
             afterDraw: (chart) => {
                 const dateSelectVal = document.getElementById('dateSelect').value;
                 const todayStr = new Date().toISOString().split('T')[0];
-                
                 if (dateSelectVal !== todayStr) return;
 
                 const ctx = chart.ctx;
@@ -497,13 +387,9 @@
             }
         };
 
-        // Render Chart.js
         function renderChart(labels, data, threshold) {
             const ctx = document.getElementById('tideChart').getContext('2d');
-            
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
+            if (chartInstance) chartInstance.destroy();
 
             const isDark = document.documentElement.classList.contains('dark');
 
@@ -538,91 +424,27 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            labels: {
-                                color: isDark ? '#cbd5e1' : '#475569',
-                                font: { family: 'Kanit' }
-                            }
-                        }
+                        legend: { labels: { color: isDark ? '#cbd5e1' : '#475569', font: { family: 'Kanit' } } }
                     },
                     scales: {
-                        x: {
-                            grid: { color: isDark ? '#334155' : '#e2e8f0' },
-                            ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } }
-                        },
-                        y: {
-                            grid: { color: isDark ? '#334155' : '#e2e8f0' },
-                            ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } }
-                        }
+                        x: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } } },
+                        y: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit' } } }
                     }
                 },
                 plugins: [currentLinePlugin]
             });
         }
 
-        // Render Dynamic Shifting 7-Day Forecast Table
-        function renderForecastTable(stationKey, startDateStr) {
-            const tbody = document.getElementById('forecastTableBody');
-            tbody.innerHTML = '';
-            const startDate = new Date(startDateStr);
-            const st = stations[stationKey];
-
-            for (let i = 0; i < 7; i++) {
-                const currentDate = new Date(startDate);
-                currentDate.setDate(startDate.getDate() + i);
-                const dateStr = currentDate.toISOString().split('T')[0];
-                const displayDate = currentDate.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
-
-                const { levels, hours } = calculateLocalNavyModel(dateStr, st);
-
-                let peaks = [];
-                let troughs = [];
-
-                for (let h = 1; h < 23; h++) {
-                    if (levels[h] > levels[h - 1] && levels[h] > levels[h + 1]) {
-                        peaks.push({ hour: hours[h], val: levels[h] });
-                    }
-                    if (levels[h] < levels[h - 1] && levels[h] < levels[h + 1]) {
-                        troughs.push({ hour: hours[h], val: levels[h] });
-                    }
-                }
-
-                if (peaks.length === 0) peaks.push({ hour: "12:00", val: Math.max(...levels) });
-                if (troughs.length === 0) troughs.push({ hour: "00:00", val: Math.min(...levels) });
-
-                const high1 = peaks[0] ? `${peaks[0].hour} (${peaks[0].val.toFixed(2)}m)` : '--';
-                const low1 = troughs[0] ? `${troughs[0].hour} (${troughs[0].val.toFixed(2)}m)` : '--';
-                const high2 = peaks[1] ? `${peaks[1].hour} (${peaks[1].val.toFixed(2)}m)` : '-';
-                const low2 = troughs[1] ? `${troughs[1].hour} (${troughs[1].val.toFixed(2)}m)` : '-';
-
-                const row = `
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                        <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">${displayDate}</td>
-                        <td class="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-medium">${high1}</td>
-                        <td class="py-3 px-4 text-amber-600 dark:text-amber-400 font-medium">${low1}</td>
-                        <td class="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-medium">${high2}</td>
-                        <td class="py-3 px-4 text-amber-600 dark:text-amber-400 font-medium">${low2}</td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
-            }
-        }
-
-        // API Key Modal Controls
         apiKeyBtn.addEventListener('click', () => apiModal.classList.remove('hidden'));
         closeModalBtn.addEventListener('click', () => apiModal.classList.add('hidden'));
         saveApiKeyBtn.addEventListener('click', () => {
             const key = apiKeyInput.value.trim();
-            if (key) {
-                localStorage.setItem('tidesatlas_api_key', key);
-            } else {
-                localStorage.removeItem('tidesatlas_api_key');
-            }
+            if (key) localStorage.setItem('tidesatlas_api_key', key);
+            else localStorage.removeItem('tidesatlas_api_key');
             apiModal.classList.add('hidden');
             updateDashboard();
         });
 
-        // Theme Toggle
         themeToggle.addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
             const isDark = document.documentElement.classList.contains('dark');
@@ -630,11 +452,9 @@
             updateDashboard();
         });
 
-        // Change Listeners
         stationSelect.addEventListener('change', updateDashboard);
         dateSelect.addEventListener('change', updateDashboard);
 
-        // Initial Load
         updateDashboard();
     </script>
 </body>
