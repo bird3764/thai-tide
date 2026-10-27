@@ -103,7 +103,7 @@
             </div>
         </div>
 
-        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (High/Low Tides Cards เหมือนต้นฉบับ) -->
+        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง (สลับเอาความสูงมาไว้ด้านล่างเวลา) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tideCardsContainer">
             <!-- Populated dynamically -->
         </div>
@@ -253,13 +253,13 @@
             let hours = [];
             let levels = [];
 
-            if (data && data.events) {
-                tideEvents = data.events.map(ev => {
+            if (data && data.tides) {
+                tideEvents = data.tides.map(ev => {
                     const d = new Date(ev.timestamp);
                     return {
                         time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
                         height: parseFloat(ev.height.toFixed(2)),
-                        type: ev.type.toLowerCase() // high / low
+                        type: ev.type.toLowerCase()
                     };
                 });
             }
@@ -294,7 +294,6 @@
                 levels.push(parseFloat(level.toFixed(2)));
             }
 
-            // หา Peak / Trough จำลอง
             let tideEvents = [
                 { time: "06:30", height: station.baseHigh, type: "high" },
                 { time: "12:15", height: station.baseLow, type: "low" },
@@ -312,7 +311,7 @@
 
             if (!levels || levels.length === 0) return;
 
-            // Render Tide Cards (High/Low) เหมือนในรูปตัวอย่าง
+            // Render Tide Cards (สลับเอาเวลาขึ้นก่อน และเอาความสูงมาไว้ด้านล่าง)
             const container = document.getElementById('tideCardsContainer');
             container.innerHTML = '';
             
@@ -330,7 +329,7 @@
                                     <i class="fa-solid ${isHigh ? 'fa-arrow-up-long' : 'fa-arrow-down-long'} text-xl"></i>
                                 </div>
                             </div>
-                            <p class="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-3">ระดับ: ${ev.height.toFixed(2)} m</p>
+                            <p class="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-3">${ev.height.toFixed(2)}m</p>
                         </div>
                     `;
                     container.innerHTML += card;
