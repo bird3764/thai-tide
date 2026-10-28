@@ -1,0 +1,92 @@
+{
+ "13.5976,100.5972": {
+  "id": "fes2022-samut-prakan",
+  "name": "Samut Prakan",
+  "distance": 0
+ },
+ "13.12,100.9": {
+  "id": "fes2022-si-racha",
+  "name": "Si Racha",
+  "distance": 9
+ },
+ "12.9,100.83": {
+  "id": "fes2022-ban-ko-lan",
+  "name": "Ban Ko Lan",
+  "distance": 3
+ },
+ "12.62,101.35": {
+  "id": "fes2022-ban-phe",
+  "name": "Ban Phe",
+  "distance": 6
+ },
+ "12.1,102.35": {
+  "id": "fes2022-ko-chang",
+  "name": "Ko Chang",
+  "distance": 12
+ },
+ "12.55,100.05": {
+  "id": "fes2022-hua-hin",
+  "name": "Hua Hin",
+  "distance": 8
+ },
+ "11.8,99.85": {
+  "id": "ko_lak-328-tha-uhslc_fd",
+  "name": "Ko Lak",
+  "distance": 4
+ },
+ "10.5,99.35": {
+  "id": "fes2022-chumphon",
+  "name": "Chumphon",
+  "distance": 19
+ },
+ "9.25,99.85": {
+  "id": "fes2022-don-sak",
+  "name": "Don Sak",
+  "distance": 17
+ },
+ "8.35,100.35": {
+  "id": "fes2022-pak-phanang",
+  "name": "Pak Phanang",
+  "distance": 17
+ },
+ "7.25,100.65": {
+  "id": "fes2022-songkhla",
+  "name": "Songkhla",
+  "distance": 9
+ },
+ "7,101.35": {
+  "id": "fes2022-pattani",
+  "name": "Pattani",
+  "distance": 12
+ },
+ "6.45,102": {
+  "id": "fes2022-tak-bai",
+  "name": "Tak Bai",
+  "distance": 20
+ },
+ "9.9,98.4": {
+  "id": "fes2022-ranong",
+  "name": "Ranong",
+  "distance": 27
+ },
+ "8.35,98.2": {
+  "id": "fes2022-ban-mai-khao",
+  "name": "Ban Mai Khao",
+  "distance": 30
+ },
+ "7.85,98.2": {
+  "id": "fes2022-ban-chalong",
+  "name": "Ban Chalong",
+  "distance": 12
+ },
+ "7.95,98.85": {
+  "id": "fes2022-ban-ao-nang",
+  "name": "Ban Ao Nang",
+  "distance": 8
+ },
+ "6.8,99.6": {
+  "id": "langkawi-142a-mys-uhslc_rq",
+  "name": "Langkawi",
+  "distance": 20
+ }
+}
