@@ -1,139 +1,481 @@
-name: อัปเดตข้อมูลน้ำขึ้นน้ำลง (TideCheck)
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06101e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>ระดับน้ำทะเลไทย</title>
+<style>
+  :root{
+    --bg:#06101e; --panel:#0e1d33; --line:#1a3052; --text:#eaf2ff; --dim:#8aa0c2;
+    --accent:#1e8cff; --hi:#78dcff; --lo:#ffbe78;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif}
+  body{display:flex;flex-direction:column;min-height:100dvh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  header{display:flex;gap:8px;padding:12px 12px 8px}
+  .select-wrap{flex:1;position:relative;min-width:0}
+  select{width:100%;appearance:none;-webkit-appearance:none;background:var(--panel);color:var(--text);
+    border:1px solid var(--line);border-radius:12px;padding:12px 36px 12px 14px;font-size:16px;font-family:inherit}
+  .select-wrap::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;
+    border-right:2px solid var(--text);border-bottom:2px solid var(--text);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+  #gear{flex:none;width:48px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;font-size:20px;cursor:pointer}
+  select:focus-visible,.dbtn:focus-visible,#gear:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+  .chart-row{flex:1;display:flex;gap:8px;min-height:300px}
+  #strip{flex:none;width:78px;display:flex;flex-direction:column;gap:6px}
+  .dbtn{flex:1;min-height:40px;background:var(--panel);color:#cfe0fa;border:1px solid var(--line);border-radius:12px;
+    padding:2px 0;font-family:inherit;font-size:12px;line-height:1.25;cursor:pointer}
+  .dbtn b{display:block;font-size:14px;font-weight:600}
+  .dbtn span{display:block;opacity:.85}
+  .dbtn.on{background:#145a96;border-color:#2f86d0;color:#fff}
+  .dbtn:active{filter:brightness(1.25)}
+  main{flex:1;display:flex;flex-direction:column;padding:0 12px 12px;gap:10px;max-width:760px;width:100%;margin:0 auto}
+  .chart-wrap{position:relative;flex:1;min-width:0;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;display:block}
+  #status{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
+    font-size:15px;background:rgba(6,16,30,.75)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  .card .k{font-size:12px;color:var(--dim)}
+  .card .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .card .s{font-size:12px;color:var(--dim)}
+  .hi .v{color:var(--hi)} .lo .v{color:var(--lo)}
+  .tides{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-variant-numeric:tabular-nums}
+  .chip b{color:var(--hi)} .chip.l b{color:var(--lo)}
+  #note{font-size:12px;color:#ffd08a;line-height:1.5;display:none}
+  footer{font-size:11px;color:var(--dim);line-height:1.5;padding:2px 2px 0}
+  footer a{color:var(--dim)}
+  dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:18px;width:min(92vw,420px)}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog h2{margin:0 0 6px;font-size:18px}
+  dialog p{margin:6px 0;font-size:13px;color:var(--dim);line-height:1.5}
+  dialog input{width:100%;margin:8px 0;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px;font-family:ui-monospace,monospace}
+  .row{display:flex;gap:8px;margin-top:6px}
+  .row button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);background:#145a96;color:#fff;font-size:15px;font-family:inherit;cursor:pointer}
+  .row button.sec{background:var(--bg);color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <div class="select-wrap">
+    <select id="station" aria-label="เลือกจุดวัด"></select>
+  </div>
+  <button id="gear" type="button" aria-label="ตั้งค่า API key">⚙</button>
+</header>
 
-on:
-  schedule:
-    - cron: "10 17 * * *"   # 00:10 น. เวลาไทย วันละครั้ง
-  workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/fetch-tides.yml"
+<main>
+  <div class="chart-row">
+    <div class="chart-wrap">
+      <canvas id="cv" aria-label="กราฟระดับน้ำทะเล"></canvas>
+      <div id="status"></div>
+    </div>
+    <div id="strip" role="tablist" aria-label="เลือกวัน"></div>
+  </div>
 
-permissions:
-  contents: write
+  <div class="stats">
+    <div class="card"><div class="k" id="kNow">ตอนนี้</div><div class="v" id="vNow">--</div><div class="s" id="sNow">เมตร</div></div>
+    <div class="card hi"><div class="k">สูงสุด</div><div class="v" id="vHi">--</div><div class="s" id="sHi"></div></div>
+    <div class="card lo"><div class="k">ต่ำสุด</div><div class="v" id="vLo">--</div><div class="s" id="sLo"></div></div>
+  </div>
+  <div class="tides" id="tides"></div>
+  <div id="note"></div>
 
-jobs:
-  fetch:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: ดึงข้อมูลจาก TideCheck
-        env:
-          TIDECHECK_KEY: ${{ secrets.TIDECHECK_KEY }}
-        run: |
-          node <<'JS'
-          const fs = require("fs");
-          const STATIONS = [
-            {n:"สมุทรปราการ (พระสมุทรเจดีย์)", lat:13.5976, lon:100.5972},
-            {n:"ชลบุรี (ศรีราชา)",      lat:13.12, lon:100.90},
-            {n:"พัทยา",                 lat:12.90, lon:100.83},
-            {n:"ระยอง",                 lat:12.62, lon:101.35},
-            {n:"ตราด (แหลมงอบ)",        lat:12.10, lon:102.35},
-            {n:"หัวหิน",                lat:12.55, lon:100.05},
-            {n:"ประจวบคีรีขันธ์",        lat:11.80, lon: 99.85},
-            {n:"ชุมพร",                 lat:10.50, lon: 99.35},
-            {n:"สุราษฎร์ธานี (ดอนสัก)",  lat: 9.25, lon: 99.85},
-            {n:"นครศรีธรรมราช",          lat: 8.35, lon:100.35},
-            {n:"สงขลา",                 lat: 7.25, lon:100.65},
-            {n:"ปัตตานี",               lat: 7.00, lon:101.35},
-            {n:"นราธิวาส",              lat: 6.45, lon:102.00},
-            {n:"ระนอง",                 lat: 9.90, lon: 98.40},
-            {n:"พังงา",                 lat: 8.35, lon: 98.20},
-            {n:"ภูเก็ต",                lat: 7.85, lon: 98.20},
-            {n:"กระบี่ (อ่าวนาง)",       lat: 7.95, lon: 98.85},
-            {n:"สตูล (ปากบารา)",         lat: 6.80, lon: 99.60},
-          ];
-          const KEY = process.env.TIDECHECK_KEY;
-          const BASE = process.env.TC_BASE || "https://tidecheck.com/api";
-          const DATUM = process.env.TC_DATUM || "LAT";
-          const MAXREQ = +(process.env.MAX_REQUESTS || 45);   // กันไม่ให้เกินโควตาฟรี 50 ต่อวัน
-          if (!KEY) { console.error("ไม่พบ secret TIDECHECK_KEY"); process.exit(1); }
-          const DAY = 864e5;
-          let used = 0;
+  <footer>
+    <span id="src"></span><br>
+    เป็นค่าพยากรณ์จากแบบจำลอง ไม่ใช่ค่าวัดจริง และไม่เหมาะสำหรับการเดินเรือ · แตะ/ลากบนกราฟเพื่อดูระดับน้ำแต่ละเวลา
+  </footer>
+</main>
 
-          async function api(path) {
-            if (used >= MAXREQ) throw new Error("ถึงเพดาน " + MAXREQ + " คำขอแล้ว หยุดเพื่อไม่ให้เกินโควตา");
-            used++;
-            const r = await fetch(BASE + path, {headers: {"X-API-Key": KEY}});
-            const txt = await r.text();
-            if (!r.ok) throw new Error("HTTP " + r.status + " " + txt.slice(0, 200));
-            try { return JSON.parse(txt); } catch (e) { throw new Error("อ่าน JSON ไม่ได้: " + txt.slice(0, 200)); }
-          }
-          function parseTime(s) {
-            if (typeof s === "number") return s > 1e12 ? s : s * 1000;
-            s = String(s).trim().replace(" ", "T");
-            const tz = /(Z|[+-]\d{2}:?\d{2})$/i.test(s.slice(10));
-            return Date.parse(tz ? s : s + "Z");
-          }
-          function collect(o, acc) {
-            if (Array.isArray(o)) { o.forEach(x => collect(x, acc)); return; }
-            if (o && typeof o === "object") {
-              const h = o.height ?? o.height_m, tm = o.time ?? o.datetime ?? o.dt;
-              if (typeof h === "number" && tm != null) { const t = parseTime(tm); if (isFinite(t)) acc.push({t, h}); return; }
-              Object.values(o).forEach(v => collect(v, acc));
-            }
-          }
-          function dedupe(a) {
-            a.sort((x, y) => x.t - y.t);
-            const out = [];
-            a.forEach(e => { if (!out.length || e.t - out[out.length-1].t > 60000) out.push(e); });
-            return out;
-          }
-          function findStations(o, acc) {
-            if (Array.isArray(o)) { o.forEach(x => findStations(x, acc)); return; }
-            if (o && typeof o === "object") {
-              if (o.id != null && o.name != null) acc.push(o);
-              Object.values(o).forEach(v => { if (v && typeof v === "object") findStations(v, acc); });
-            }
-          }
-          const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return d; } };
+<dialog id="dlg">
+  <h2>ตั้งค่าแหล่งข้อมูล</h2>
+  <p>ใส่ API key จาก <a href="https://tidesatlas.com/api/register" target="_blank" rel="noopener" style="color:var(--hi)">tidesatlas.com</a>
+  เพื่อใช้พยากรณ์น้ำขึ้นน้ำลงรายสถานี (แม่นกว่า) key จะเก็บไว้ในเครื่องนี้เท่านั้น ไม่ได้อยู่ในไฟล์ของเว็บ
+  ถ้าไม่ใส่ แอปจะใช้ข้อมูลสำรองจาก Open-Meteo</p>
+  <input id="keyIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ta_...">
+  <p id="keyMsg"></p>
+  <div class="row">
+    <button id="keySave" type="button">บันทึก</button>
+    <button id="keyClear" type="button" class="sec">ลบ key</button>
+    <button id="keyClose" type="button" class="sec">ปิด</button>
+  </div>
+</dialog>
 
-          (async () => {
-            fs.mkdirSync("data", {recursive: true});
-            const map = readJson("data/stations.json", {});          // จำสถานีอ้างอิงไว้ จะได้ไม่เสียโควตาหาซ้ำ
-            const old = readJson("data/tides.json", {stations: []});
-            const out = []; let ok = 0;
+<script>
+"use strict";
 
-            for (const s of STATIONS) {
-              const key = s.lat + "," + s.lon;
-              const prev = (old.stations || []).find(x => x.lat === s.lat && x.lon === s.lon);
-              try {
-                if (!map[key]) {
-                  const j = await api(`/stations/nearest?lat=${s.lat}&lng=${s.lon}`);
-                  const found = []; findStations(j, found);
-                  if (!found.length) throw new Error("หาสถานีใกล้ไม่เจอ: " + JSON.stringify(j).slice(0, 300));
-                  const dist = x => x.distance ?? x.distanceKm ?? x.distance_km ?? x.dist ?? Infinity;
-                  found.sort((a, b) => dist(a) - dist(b));
-                  const f = found[0];
-                  map[key] = {id: f.id, name: f.name, distance: isFinite(dist(f)) ? dist(f) : null};
-                  fs.writeFileSync("data/stations.json", JSON.stringify(map, null, 1));
-                  console.log("สถานีอ้างอิง", s.n, "->", f.name, "(id " + f.id + ", ห่าง", map[key].distance, ")");
-                }
-                const m = map[key];
-                const j = await api(`/station/${encodeURIComponent(m.id)}/tides?days=14&datum=${DATUM}`);
-                const acc = []; collect(j, acc);
-                const ex = dedupe(acc);
-                if (ex.length < 6) throw new Error("ได้จุดน้ำขึ้นลงน้อยเกินไป: " + JSON.stringify(j).slice(0, 300));
-                // เก็บข้อมูลเมื่อวานจากรอบก่อนไว้ เพราะแพ็กเกจฟรีขอย้อนหลังไม่ได้ (ใช้วาดกราฟช่วงเช้ามืดของวันนี้)
-                const keepOld = ((prev && prev.ex) || []).filter(e => e.t < ex[0].t - 30*60e3 && e.t > Date.now() - 2*DAY);
-                out.push({n: s.n, lat: s.lat, lon: s.lon,
-                          ref: m.name + (m.distance != null ? " (ห่าง " + Math.round(m.distance * 10) / 10 + " กม.)" : ""),
-                          ex: keepOld.concat(ex)});
-                ok++; console.log("OK", s.n, ex.length, "จุด");
-              } catch (e) {
-                console.log("ล้มเหลว", s.n, "-", e.message);
-                if (prev) out.push(prev);                               // ใช้ข้อมูลเดิมไปก่อน
-              }
-              await new Promise(r => setTimeout(r, 500));
-            }
-            console.log("ใช้โควตาไป", used, "คำขอ");
-            if (!ok) { console.error("ดึงข้อมูลไม่ได้เลยสักสถานี (ดูข้อความด้านบน)"); process.exit(1); }
-            fs.writeFileSync("data/tides.json", JSON.stringify({updated: new Date().toISOString(), provider: "TideCheck", datum: DATUM, stations: out}));
-            console.log("บันทึก data/tides.json แล้ว", ok, "/", STATIONS.length, "สถานีใหม่");
-          })();
-          JS
-      - name: บันทึกไฟล์ข้อมูล
-        run: |
-          git config user.name "tide-bot"
-          git config user.email "tide-bot@users.noreply.github.com"
-          git add data/tides.json data/stations.json
-          git diff --cached --quiet || (git commit -m "Update tide data" && git push)
+// จุดวัด: พิกัดชายฝั่ง/ในทะเลใกล้จุดนั้น (แก้ไข/เพิ่มได้)
+const STATIONS = [
+  {n:"สมุทรปราการ (พระสมุทรเจดีย์)", lat:13.5976, lon:100.5972},
+  {n:"ชลบุรี (ศรีราชา)",      lat:13.12, lon:100.90},
+  {n:"พัทยา",                 lat:12.90, lon:100.83},
+  {n:"ระยอง",                 lat:12.62, lon:101.35},
+  {n:"ตราด (แหลมงอบ)",        lat:12.10, lon:102.35},
+  {n:"หัวหิน",                lat:12.55, lon:100.05},
+  {n:"ประจวบคีรีขันธ์",        lat:11.80, lon: 99.85},
+  {n:"ชุมพร",                 lat:10.50, lon: 99.35},
+  {n:"สุราษฎร์ธานี (ดอนสัก)",  lat: 9.25, lon: 99.85},
+  {n:"นครศรีธรรมราช",          lat: 8.35, lon:100.35},
+  {n:"สงขลา",                 lat: 7.25, lon:100.65},
+  {n:"ปัตตานี",               lat: 7.00, lon:101.35},
+  {n:"นราธิวาส",              lat: 6.45, lon:102.00},
+  {n:"ระนอง",                 lat: 9.90, lon: 98.40},
+  {n:"พังงา",                 lat: 8.35, lon: 98.20},
+  {n:"ภูเก็ต",                lat: 7.85, lon: 98.20},
+  {n:"กระบี่ (อ่าวนาง)",       lat: 7.95, lon: 98.85},
+  {n:"สตูล (ปากบารา)",         lat: 6.80, lon: 99.60},
+];
+const TA_BASE = "https://tidesatlas.com/api/v1/tides";
+const TA_DATUM = "";                    // ว่าง = ใช้ค่าเริ่มต้นของ TidesAtlas (ตรงกับตัวเลขบนหน้าเว็บ tidesatlas.com) ใส่ "LAT" หรือ "MSL" ได้ถ้าต้องการ
+
+const $ = id => document.getElementById(id);
+const sel = $("station"), cv = $("cv"), ctx = cv.getContext("2d");
+const TH_DAY = ["อา.","จ.","อ.","พ.","พฤ.","ศ.","ส."];
+const TH_MON = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const BK = 7*3600e3, DAY = 864e5, HR = 36e5;      // เวลาไทย = UTC+7 (ไม่ขึ้นกับเขตเวลาของเครื่อง)
+
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+let apiKey = (lsGet("ta_key")||"").trim();
+let stIdx = Math.min(STATIONS.length-1, Math.max(0, parseInt(lsGet("st")||"0",10)||0));
+let day = 0, D = null, loading = false, cursorX = null, cursorTimer = null;
+
+STATIONS.forEach((s,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=s.n; sel.appendChild(o); });
+sel.value = stIdx;
+
+// ---------- เวลา ----------
+const bkNow = () => Date.now() + BK;
+const midnight = ms => Math.floor(ms/DAY)*DAY;
+const pad2 = n => String(n).padStart(2,"0");
+function fmtT(ms){ const d=new Date(ms); return pad2(d.getUTCHours())+":"+pad2(d.getUTCMinutes()); }
+function parseTime(s){
+  if(typeof s==="number") return s>1e12 ? s : s*1000;
+  s = String(s).trim().replace(" ","T");
+  const hasTz = /(Z|[+-]\d{2}:?\d{2})$/i.test(s.slice(10));
+  return Date.parse(hasTz ? s : s+"+07:00");
+}
+
+// ---------- ดึงข้อมูล ----------
+function collect(o, acc){
+  if(Array.isArray(o)){ o.forEach(x=>collect(x,acc)); return; }
+  if(o && typeof o==="object"){
+    const h = o.height_m ?? o.height, tm = o.datetime ?? o.time ?? o.dt;
+    if(typeof h==="number" && tm!=null){ const t=parseTime(tm); if(isFinite(t)) acc.push({t:t+BK,h}); return; }
+    Object.values(o).forEach(v=>collect(v,acc));
+  }
+}
+function cleanEx(arr){
+  arr.sort((a,b)=>a.t-b.t);
+  const out=[];
+  arr.forEach(e=>{ if(!out.length || e.t-out[out.length-1].t>60000) out.push(e); });
+  return out;
+}
+
+async function fetchTA(s){
+  const d0 = midnight(bkNow());
+  const iso = ms => new Date(ms).toISOString().slice(0,10);
+  const tries = [
+    {date:iso(d0-DAY), days:9, datum:TA_DATUM},
+    {date:iso(d0-DAY), days:9, datum:""},
+    {date:iso(d0),     days:7, datum:TA_DATUM},
+    {date:iso(d0),     days:7, datum:""},
+  ];
+  let lastErr = "ไม่มีข้อมูล"; const seen = new Set();
+  for(const t of tries){
+    const url = `${TA_BASE}?lat=${s.lat}&lon=${s.lon}&date=${t.date}&days=${t.days}`+(t.datum?`&datum=${t.datum}`:"");
+    if(seen.has(url)) continue; seen.add(url);
+    let r;
+    try{ r = await fetch(url,{headers:{"X-API-Key":apiKey}}); }
+    catch(e){ throw new Error("เชื่อมต่อไม่ได้/ถูกบล็อก"); }
+    if(r.status===401 || r.status===403) throw new Error("key ไม่ถูกต้อง ("+r.status+")");
+    if(r.status===429) throw new Error("เรียกใช้เกินโควตา");
+    if(!r.ok){ lastErr="HTTP "+r.status; continue; }
+    let j; try{ j = await r.json(); }catch(e){ lastErr="อ่านข้อมูลไม่ได้"; continue; }
+    const acc=[]; collect(j,acc);
+    const ex = cleanEx(acc);
+    if(ex.length>=4) return {src:"tidesatlas", datum:t.datum, ex};
+    lastErr = "ข้อมูลไม่ครบ";
+  }
+  throw new Error(lastErr);
+}
+
+// ข้อมูลที่ GitHub Actions ดึงจาก TidesAtlas แล้วเก็บไว้ในไฟล์ data/tides.json (ไม่ต้องใช้ key ในเบราว์เซอร์)
+async function fetchStatic(i){
+  const r = await fetch("data/tides.json?"+Math.floor(Date.now()/600000), {cache:"no-store"});
+  if(!r.ok) throw new Error("ยังไม่มีไฟล์ข้อมูล ("+r.status+")");
+  const j = await r.json(), s = STATIONS[i];
+  const st = (j.stations||[]).find(x=>Math.abs(x.lat-s.lat)<1e-6 && Math.abs(x.lon-s.lon)<1e-6);
+  if(!st || !st.ex || st.ex.length<4) throw new Error("ไม่มีข้อมูลของสถานีนี้ในไฟล์");
+  const ex = cleanEx(st.ex.map(e=>({t:e.t+BK,h:e.h})));
+  if(ex[ex.length-1].t < bkNow()) throw new Error("ไฟล์ข้อมูลเก่าเกินไป");
+  return {src:"tidesatlas", provider:j.provider||"TidesAtlas", ref:st.ref||"", datum:j.datum||"", ex, updated:j.updated};
+}
+
+function hourlyToEx(times, v){
+  const out=[];
+  for(let i=1;i<v.length-1;i++){
+    const a=v[i-1], b=v[i], c=v[i+1];
+    if(a==null||b==null||c==null) continue;
+    if((b>a&&b>=c)||(b<a&&b<=c)){
+      const den=a-2*b+c, off=den?0.5*(a-c)/den:0;
+      out.push({t:parseTime(times[i])+BK+off*HR, h:b-0.25*(a-c)*off});
+    }
+  }
+  return out;
+}
+async function fetchOM(s){
+  const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${s.lat}&longitude=${s.lon}&hourly=sea_level_height_msl&forecast_days=7&timezone=Asia%2FBangkok`;
+  const r = await fetch(url);
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j = await r.json();
+  const t=j?.hourly?.time, v=j?.hourly?.sea_level_height_msl;
+  if(!t||!v) throw new Error("ไม่มีข้อมูล");
+  const ex = cleanEx(hourlyToEx(t,v));
+  if(ex.length<4) throw new Error("ไม่มีข้อมูลทะเลที่จุดนี้");
+  return {src:"openmeteo", datum:"MSL", ex};
+}
+
+// ---------- โมเดลกราฟ ----------
+function buildModel(raw){
+  const day0 = raw.day0 ?? midnight(bkNow());
+  const ex = raw.ex.map(e=>({t:e.t,h:e.h}));
+  const win = ex.filter(e=>e.t>=day0 && e.t<day0+7*DAY);
+  const base = win.length ? win : ex;
+  let mn=Infinity, mx=-Infinity;
+  base.forEach(e=>{ if(e.h<mn)mn=e.h; if(e.h>mx)mx=e.h; });
+  if(mx-mn<0.3){ const m=(mx+mn)/2; mn=m-.15; mx=m+.15; }
+  const pad=(mx-mn)*.08;
+  // เติมจุดสมมติหัว-ท้าย เพื่อให้เส้นโค้งต่อเนื่องตลอดช่วง
+  const a=ex[0], b=ex[1], y=ex[ex.length-2], z=ex[ex.length-1];
+  ex.unshift({t:a.t-(b.t-a.t), h:b.h, syn:true});
+  ex.push({t:z.t+(z.t-y.t), h:y.h, syn:true});
+  return {ex, src:raw.src, datum:raw.datum, day0, fetched:raw.fetched, gmin:mn-pad, gmax:mx+pad, signed:raw.src==="openmeteo", raw};
+}
+function levelAt(t){
+  const e=D.ex, n=e.length;
+  if(t<=e[0].t) return e[0].h;
+  if(t>=e[n-1].t) return e[n-1].h;
+  let lo=0, hi=n-1;
+  while(hi-lo>1){ const m=(lo+hi)>>1; if(e[m].t<=t) lo=m; else hi=m; }
+  const f=(t-e[lo].t)/(e[hi].t-e[lo].t);
+  return e[lo].h+(e[hi].h-e[lo].h)*(1-Math.cos(Math.PI*f))/2;
+}
+const lvH = (d,h) => levelAt(D.day0 + d*DAY + h*HR);
+const nowHour = () => (bkNow()-D.day0)/HR;
+
+function dayStats(d){
+  let mx=-Infinity, mn=Infinity, mxT=0, mnT=0, sum=0, n=0;
+  const s=D.day0+d*DAY;
+  for(let k=0;k<144;k++){
+    const t=s+k*600000, v=levelAt(t); sum+=v; n++;
+    if(v>mx){mx=v;mxT=t;} if(v<mn){mn=v;mnT=t;}
+  }
+  turnings(d).forEach(x=>{ if(x.h>mx){mx=x.h;mxT=x.t;} if(x.h<mn){mn=x.h;mnT=x.t;} });
+  return {mx,mn,mxT,mnT,avg:sum/n};
+}
+function turnings(d){
+  const s=D.day0+d*DAY, out=[], e=D.ex;
+  for(let i=1;i<e.length-1;i++){
+    if(e[i].syn || e[i].t<s || e[i].t>=s+DAY) continue;
+    out.push({t:e[i].t, h:e[i].h, hi:e[i].h>=e[i-1].h && e[i].h>=e[i+1].h});
+  }
+  return out;
+}
+const f2 = v => (v>=0?"+":"−")+Math.abs(v).toFixed(2);
+const fmt = v => D && D.signed ? f2(v) : v.toFixed(2);
+
+// ---------- โหลด ----------
+async function load(i, force){
+  loading=true; showStatus("กำลังโหลดข้อมูล…");
+  const ck="tide_v2_"+i, today=midnight(bkNow());
+  let cached=null; try{ cached=JSON.parse(lsGet(ck)||"null"); }catch(e){}
+  const cacheOK = cached && cached.day0===today;
+  if(cacheOK && cached.src==="tidesatlas" && !force && Date.now()-cached.fetched < 3600e3){ D=buildModel(cached); finish(); return; }
+
+  let raw=null, note="", whyNot="";
+  try{ raw = await fetchStatic(i); }
+  catch(e){ whyNot = e.message; }
+  if(!raw && apiKey){
+    try{ raw = await fetchTA(STATIONS[i]); }
+    catch(e){ whyNot += (whyNot?" / ":"")+"เรียกตรงด้วย key: "+e.message; }
+  }
+  if(!raw){
+    note = "ข้อมูล TidesAtlas ยังไม่พร้อม ("+whyNot+") — แสดงข้อมูลสำรองจาก Open-Meteo (ความแม่นต่ำกว่า)";
+    try{ raw = await fetchOM(STATIONS[i]); }
+    catch(e){
+      if(cacheOK){ D=buildModel(cached); finish("ออฟไลน์ — แสดงข้อมูลที่บันทึกไว้"); return; }
+      D=null; loading=false; showStatus("โหลดข้อมูลไม่สำเร็จ ("+e.message+")\nแตะเพื่อลองใหม่", true); updateUI(); return;
+    }
+  }
+  raw.fetched=Date.now(); raw.day0=today;
+  lsSet(ck, JSON.stringify(raw));
+  D=buildModel(raw);
+  finish(note);
+}
+function finish(note){
+  loading=false; showStatus("");
+  const n=$("note"); n.textContent=note||""; n.style.display=note?"block":"none";
+  updateUI();
+}
+function showStatus(msg, retry){
+  const el=$("status");
+  el.style.display = msg ? "flex" : "none";
+  el.style.whiteSpace="pre-line";
+  el.style.pointerEvents = retry ? "auto" : "none";
+  el.textContent = msg;
+  el.onclick = retry ? ()=>load(stIdx,true) : null;
+}
+
+// ---------- UI ----------
+function buildStrip(){
+  const st=$("strip"); st.innerHTML="";
+  const base = D ? D.day0 : midnight(bkNow());
+  for(let i=0;i<7;i++){
+    const dt=new Date(base+i*DAY), b=document.createElement("button");
+    b.type="button"; b.className="dbtn"+(i===day?" on":""); b.setAttribute("role","tab"); b.setAttribute("aria-selected",i===day);
+    b.innerHTML="<b>"+(i===0?"วันนี้":TH_DAY[dt.getUTCDay()])+"</b><span>"+dt.getUTCDate()+" "+TH_MON[dt.getUTCMonth()]+"</span>";
+    b.addEventListener("click",()=>{ day=i; cursorX=null; updateUI(); });
+    st.appendChild(b);
+  }
+}
+function updateUI(){
+  buildStrip();
+  if(!D){ ["vNow","vHi","vLo"].forEach(i=>$(i).textContent="--"); $("sHi").textContent=$("sLo").textContent=""; $("tides").innerHTML=""; $("src").textContent=""; return; }
+
+  const s=dayStats(day);
+  if(day===0){ $("kNow").textContent="ตอนนี้"; $("vNow").textContent=fmt(levelAt(bkNow())); }
+  else { $("kNow").textContent="เฉลี่ยทั้งวัน"; $("vNow").textContent=fmt(s.avg); }
+  $("sNow").textContent = "เมตร ("+(D.src==="tidesatlas" ? (D.datum||"ค่า API") : "MSL")+")";
+  $("vHi").textContent=fmt(s.mx); $("sHi").textContent="เวลา "+fmtT(s.mxT);
+  $("vLo").textContent=fmt(s.mn); $("sLo").textContent="เวลา "+fmtT(s.mnT);
+
+  const t=$("tides"); t.innerHTML="";
+  turnings(day).forEach(x=>{
+    const c=document.createElement("span"); c.className="chip"+(x.hi?"":" l");
+    c.innerHTML=(x.hi?"น้ำขึ้นสูงสุด ":"น้ำลงต่ำสุด ")+fmtT(x.t)+" <b>"+fmt(x.h)+" ม.</b>";
+    t.appendChild(c);
+  });
+
+  const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const prov = (D.raw && D.raw.provider) || "TidesAtlas";
+  const ref = D.raw && D.raw.ref ? " · สถานีอ้างอิง: "+esc(D.raw.ref) : "";
+  $("src").innerHTML = D.src==="tidesatlas"
+    ? 'แหล่งข้อมูล: <a href="'+(prov==="TideCheck"?"https://tidecheck.com":"https://tidesatlas.com")+'" target="_blank" rel="noopener">'+esc(prov)+'</a>'+ref+' (พยากรณ์น้ำขึ้นน้ำลง, อ้างอิง '+esc(D.datum||"ค่าเริ่มต้นของ API")+')'
+    : 'แหล่งข้อมูลสำรอง: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (DWD ICON) — ความแม่นยำต่ำในปากแม่น้ำ/อ่าวตื้น';
+}
+
+sel.addEventListener("change", ()=>{ stIdx=+sel.value; day=0; lsSet("st",stIdx); load(stIdx); });
+
+// ---------- ตั้งค่า key ----------
+const dlg=$("dlg");
+$("gear").addEventListener("click",()=>{ $("keyIn").value=apiKey; $("keyMsg").textContent = apiKey ? "ตอนนี้ใช้ key ที่บันทึกไว้" : "ยังไม่ได้ใส่ key"; if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open",""); });
+$("keyClose").addEventListener("click",()=>dlg.close());
+$("keySave").addEventListener("click",()=>{ apiKey=$("keyIn").value.trim(); if(apiKey) lsSet("ta_key",apiKey); else lsDel("ta_key"); dlg.close(); day=0; load(stIdx,true); });
+$("keyClear").addEventListener("click",()=>{ apiKey=""; lsDel("ta_key"); $("keyIn").value=""; dlg.close(); day=0; load(stIdx,true); });
+
+// ---------- กราฟ ----------
+let W=0,H=0,dpr=1;
+function resize(){
+  const r=cv.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,3);
+  W=Math.max(1,r.width); H=Math.max(1,r.height);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  draw();
+}
+new ResizeObserver(resize).observe(cv);
+
+function setCursor(e){
+  const r=cv.getBoundingClientRect(); cursorX=Math.max(0,Math.min(W,e.clientX-r.left));
+  clearTimeout(cursorTimer); cursorTimer=setTimeout(()=>{cursorX=null;draw();},3000); draw();
+}
+cv.addEventListener("pointerdown",e=>{ cv.setPointerCapture(e.pointerId); setCursor(e); });
+cv.addEventListener("pointermove",e=>{ if(e.buttons||e.pointerType==="mouse") setCursor(e); });
+
+const TOP=0.18, BOT=0.80;
+function baseY(v){ const span=D.gmax-D.gmin; return H*(BOT-(v-D.gmin)/span*(BOT-TOP)); }
+
+function draw(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,"#0a1a31"); g.addColorStop(1,"#06101e");
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  if(!D) return;
+
+  ctx.strokeStyle="rgba(120,160,220,.14)"; ctx.lineWidth=1; ctx.fillStyle="rgba(190,210,245,.55)";
+  ctx.font="11px system-ui,sans-serif"; ctx.textAlign="center";
+  for(let h=0;h<=24;h+=6){ const x=Math.round(h/24*(W-1))+.5; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+
+  ctx.textAlign="left";
+  for(let k=0;k<=3;k++){
+    const v=D.gmin+(D.gmax-D.gmin)*k/3, y=Math.round(baseY(v))+.5;
+    ctx.beginPath(); ctx.setLineDash([3,5]); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillText(fmt(v)+" ม.",6,y-3);
+  }
+
+  const N=Math.ceil(W/2)+1, sx=W/(N-1), ys=new Array(N);
+  for(let i=0;i<N;i++) ys[i]=baseY(lvH(day,i/(N-1)*24));
+
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for(let i=0;i<N;i++) ctx.lineTo(i*sx,ys[i]);
+  ctx.lineTo(W,H); ctx.closePath();
+  const gr=ctx.createLinearGradient(0,H*TOP,0,H);
+  gr.addColorStop(0,"rgba(40,150,245,.95)"); gr.addColorStop(1,"rgba(10,60,140,.97)");
+  ctx.fillStyle=gr; ctx.fill();
+  ctx.beginPath(); ys.forEach((y,i)=>i?ctx.lineTo(i*sx,y):ctx.moveTo(0,y));
+  ctx.strokeStyle="rgba(205,236,255,.9)"; ctx.lineWidth=2; ctx.stroke();
+
+  // จุดน้ำขึ้น/น้ำลงของวันนี้
+  ctx.font="600 11px system-ui,sans-serif"; ctx.textAlign="center";
+  turnings(day).forEach(x=>{
+    const px=(x.t-(D.day0+day*DAY))/DAY*W, py=baseY(x.h);
+    ctx.fillStyle=x.hi?"#78dcff":"#ffbe78"; ctx.beginPath(); ctx.arc(px,py,3.5,0,7); ctx.fill();
+    const ty = x.hi ? py-9 : py+17;
+    ctx.fillStyle="rgba(230,242,255,.95)"; ctx.fillText(fmtT(x.t),Math.max(18,Math.min(W-18,px)),Math.max(12,Math.min(H-22,ty)));
+  });
+
+  ctx.font="11px system-ui,sans-serif"; ctx.fillStyle="rgba(225,240,255,.85)";
+  ["00:00","06:00","12:00","18:00"].forEach((t,i)=>ctx.fillText(t,Math.min(W-22,Math.max(22,i*W/4+(i?0:22))),H-8));
+
+  if(day===0){
+    const hp=nowHour(), x=Math.max(0,Math.min(W,hp/24*W)), y=baseY(lvH(0,Math.max(0,Math.min(24,hp))));
+    ctx.strokeStyle="rgba(255,255,255,.55)"; ctx.lineWidth=1; ctx.setLineDash([4,6]); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fill();
+    ctx.strokeStyle="#1e78dc"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,7.5,0,7); ctx.stroke();
+  }
+
+  if(cursorX!==null){
+    const hp=cursorX/W*24, v=lvH(day,hp), y=baseY(v);
+    ctx.strokeStyle="#fff"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(cursorX,0); ctx.lineTo(cursorX,H); ctx.stroke();
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(cursorX,y,5,0,7); ctx.fill();
+    const label=pad2(Math.floor(hp))+":"+pad2(Math.floor((hp%1)*60))+"  "+fmt(v)+" ม.";
+    ctx.font="600 13px system-ui,sans-serif"; const tw=ctx.measureText(label).width+18;
+    const bx=Math.max(4,Math.min(W-tw-4,cursorX-tw/2)), by=Math.max(6,Math.min(H-40,y-44));
+    ctx.fillStyle="rgba(6,16,30,.92)"; ctx.strokeStyle="#2d5fa0"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(bx,by,tw,26,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.fillText(label,bx+tw/2,by+17);
+  }
+}
+
+// ---------- เริ่มทำงาน ----------
+resize();
+load(stIdx);
+setInterval(()=>{
+  if(document.hidden || loading || !D) return;
+  if(midnight(bkNow())!==D.day0 || Date.now()-D.fetched>6*3600e3){ day=0; load(stIdx,true); return; }
+  updateUI(); draw();
+},60000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && D){ updateUI(); draw(); } });
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
