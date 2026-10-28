@@ -88,5 +88,15 @@
   "id": "langkawi-142a-mys-uhslc_rq",
   "name": "Langkawi",
   "distance": 20
+ },
+ "13.7,100.55": {
+  "id": "fes2022-phra-pradaeng",
+  "name": "Phra Pradaeng",
+  "distance": 5
+ },
+ "13.45,100.97": {
+  "id": "fes2022-chon-buri",
+  "name": "Chon Buri",
+  "distance": 6
  }
 }
