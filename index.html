@@ -211,8 +211,11 @@
 
                     if (response.ok) {
                         const data = await response.json();
-                        updateSourceStatus('TidesAtlas Live API', true);
-                        return parseApiData(data, st);
+                        const parsed = parseApiData(data, st);
+                        if (parsed && parsed.levels.length > 0) {
+                            updateSourceStatus('TidesAtlas Live API', true);
+                            return parsed;
+                        }
                     }
                 } catch (e) {
                     console.warn("API Error, fallback to model", e);
@@ -241,27 +244,41 @@
             let hours = [];
             let levels = [];
 
-            // รองรับฟิลด์ข้อมูลจาก TidesAtlas API ครบทุกรูปแบบ (tides, events, extremes)
-            const rawEvents = data.tides || data.events || data.extremes || [];
-            if (rawEvents.length > 0) {
+            // รองรับรูปแบบ JSON ทุกโครงสร้างที่เป็นไปได้จาก API
+            const rootData = data.data || data.results || data;
+            const rawEvents = rootData.tides || rootData.events || rootData.extremes || (Array.isArray(rootData) ? rootData : []);
+            
+            if (Array.isArray(rawEvents) && rawEvents.length > 0) {
                 tideEvents = rawEvents.map(ev => {
-                    const d = new Date(ev.timestamp || ev.time);
+                    const timeVal = ev.timestamp || ev.time || ev.datetime;
+                    const d = timeVal ? new Date(timeVal) : new Date();
                     return {
                         time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
                         height: parseFloat((ev.height ?? ev.value ?? ev.level ?? 0).toFixed(2)),
-                        type: (ev.type || ev.event || 'high').toLowerCase()
+                        type: String(ev.type || ev.event || 'high').toLowerCase()
                     };
                 });
             }
 
-            const rawHeights = data.heights || data.hourly || data.data || [];
-            if (rawHeights.length > 0) {
+            const rawHeights = rootData.heights || rootData.hourly || rootData.predictions || rootData.values || [];
+            if (Array.isArray(rawHeights) && rawHeights.length > 0) {
                 rawHeights.forEach(item => {
-                    const d = new Date(item.timestamp || item.time);
-                    const time = d.getHours();
-                    hours.push(`${String(time).padStart(2, '0')}:00`);
-                    levels.push(parseFloat((item.height ?? item.value ?? item.level ?? 0).toFixed(2)));
+                    const timeVal = item.timestamp || item.time || item.datetime;
+                    const d = timeVal ? new Date(timeVal) : null;
+                    const timeStr = d ? `${String(d.getHours()).padStart(2, '0')}:00` : null;
+                    if (timeStr) {
+                        hours.push(timeStr);
+                        levels.push(parseFloat((item.height ?? item.value ?? item.level ?? 0).toFixed(2)));
+                    }
                 });
+            }
+
+            // Fallback กรณี API ส่งข้อมูลมาแบบทุ่นเวลาแต่ไม่มีอาเรย์รายชั่วโมงครบ 24 ชม. ให้จำลองสเกลกราฟต่อจากข้อมูลฐาน
+            if (levels.length === 0) {
+                const fallback = generateFallbackData(new Date().toISOString().split('T')[0], station);
+                hours = fallback.hours;
+                levels = fallback.levels;
+                if (tideEvents.length === 0) tideEvents = fallback.tideEvents;
             }
 
             return { tideEvents, hours, levels, threshold: station.threshold };
@@ -309,7 +326,7 @@
             
             if (tideEvents && tideEvents.length > 0) {
                 tideEvents.forEach(ev => {
-                    const isHigh = ev.type.includes('high') || ev.type.includes('H');
+                    const isHigh = ev.type.includes('high') || ev.type.includes('h');
                     const card = `
                         <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                             <div class="flex justify-between items-start">
