@@ -2,7 +2,7 @@ name: อัปเดตข้อมูลน้ำขึ้นน้ำลง (
 
 on:
   schedule:
-    - cron: "10 17 * * *"   # 00:10 น. เวลาไทย วันละครั้ง
+    - cron: "30 0 * * *"    # 07:30 น. เวลาไทย (หลังโควตารายวันรีเซ็ต) วันละครั้ง
   workflow_dispatch:
   push:
     paths:
@@ -24,6 +24,8 @@ jobs:
           const fs = require("fs");
           const STATIONS = [
             {n:"สมุทรปราการ (พระสมุทรเจดีย์)", lat:13.5976, lon:100.5972},
+            {n:"กรุงเทพฯ (คลองเตย)",       lat:13.70, lon:100.55},
+            {n:"ฉะเชิงเทรา (บางปะกง)",     lat:13.45, lon:100.97},
             {n:"ชลบุรี (ศรีราชา)",      lat:13.12, lon:100.90},
             {n:"พัทยา",                 lat:12.90, lon:100.83},
             {n:"ระยอง",                 lat:12.62, lon:101.35},
@@ -64,13 +66,38 @@ jobs:
             const tz = /(Z|[+-]\d{2}:?\d{2})$/i.test(s.slice(10));
             return Date.parse(tz ? s : s + "Z");
           }
-          function collect(o, acc) {
-            if (Array.isArray(o)) { o.forEach(x => collect(x, acc)); return; }
-            if (o && typeof o === "object") {
-              const h = o.height ?? o.height_m, tm = o.time ?? o.datetime ?? o.dt;
-              if (typeof h === "number" && tm != null) { const t = parseTime(tm); if (isFinite(t)) acc.push({t, h}); return; }
-              Object.values(o).forEach(v => collect(v, acc));
+          function collectExtremes(j) {
+            const typed = [], any = [];
+            (function walk(o) {
+              if (Array.isArray(o)) { o.forEach(walk); return; }
+              if (o && typeof o === "object") {
+                const h = o.height ?? o.height_m, tm = o.time ?? o.datetime ?? o.dt;
+                if (typeof h === "number" && tm != null) {
+                  const t = parseTime(tm);
+                  if (isFinite(t)) { any.push({t, h}); if (typeof o.type === "string" && /^(high|low)/i.test(o.type)) typed.push({t, h}); }
+                  return;
+                }
+                Object.values(o).forEach(walk);
+              }
+            })(j);
+            if (typed.length >= 6) return dedupe(typed);          // ใช้เฉพาะรายการที่ระบุว่า high/low
+            return denseToExtremes(dedupe(any));                   // เผื่อ API ส่งมาแต่ค่ารายเวลา
+          }
+          function denseToExtremes(a) {
+            if (a.length < 8) return a;
+            const gaps = []; for (let i = 0; i < a.length-1; i++) gaps.push(a[i+1].t - a[i].t);
+            gaps.sort((x, y) => x - y);
+            if (gaps[gaps.length >> 1] > 100*60e3) return a;       // เว้นช่วงห่างอยู่แล้ว = เป็นจุดน้ำขึ้นลงจริง
+            const out = [];
+            for (let i = 1; i < a.length-1; i++) {
+              const p = a[i-1].h, b = a[i].h, n = a[i+1].h;
+              if ((b > p && b >= n) || (b < p && b <= n)) {
+                const last = out[out.length-1], hi = b > p;
+                if (last && last.hi === hi && a[i].t - last.t < 3*3600e3) { if (hi ? b > last.h : b < last.h) out[out.length-1] = {t:a[i].t, h:b, hi}; }
+                else out.push({t:a[i].t, h:b, hi});
+              }
             }
+            return out.map(({t, h}) => ({t, h}));
           }
           function dedupe(a) {
             a.sort((x, y) => x.t - y.t);
@@ -90,12 +117,18 @@ jobs:
           (async () => {
             fs.mkdirSync("data", {recursive: true});
             const map = readJson("data/stations.json", {});          // จำสถานีอ้างอิงไว้ จะได้ไม่เสียโควตาหาซ้ำ
-            const old = readJson("data/tides.json", {stations: []});
+            let old = readJson("data/tides.json", {stations: []});
+            if (old.format !== 2) old = {stations: []};              // ไฟล์จากเวอร์ชันเก่า (มีจุดซ้ำซ้อน) ไม่เอา
             const out = []; let ok = 0;
 
             for (const s of STATIONS) {
               const key = s.lat + "," + s.lon;
               const prev = (old.stations || []).find(x => x.lat === s.lat && x.lon === s.lon);
+              // พยากรณ์ล่วงหน้า 14 วัน ถ้าสถานีนี้ยังมีข้อมูลเหลือเกิน 8 วัน ไม่ต้องเสียโควตาดึงใหม่
+              if (prev && prev.ex && prev.ex.length && prev.ex[prev.ex.length-1].t > Date.now() + 8*DAY) {
+                out.push(Object.assign({}, prev, {ex: prev.ex.filter(e => e.t > Date.now() - 2*DAY)}));
+                console.log("ข้าม", s.n, "(ข้อมูลเดิมยังพอ)"); continue;
+              }
               try {
                 if (!map[key]) {
                   const j = await api(`/stations/nearest?lat=${s.lat}&lng=${s.lon}`);
@@ -110,8 +143,7 @@ jobs:
                 }
                 const m = map[key];
                 const j = await api(`/station/${encodeURIComponent(m.id)}/tides?days=14&datum=${DATUM}`);
-                const acc = []; collect(j, acc);
-                const ex = dedupe(acc);
+                const ex = collectExtremes(j);
                 if (ex.length < 6) throw new Error("ได้จุดน้ำขึ้นลงน้อยเกินไป: " + JSON.stringify(j).slice(0, 300));
                 // เก็บข้อมูลเมื่อวานจากรอบก่อนไว้ เพราะแพ็กเกจฟรีขอย้อนหลังไม่ได้ (ใช้วาดกราฟช่วงเช้ามืดของวันนี้)
                 const keepOld = ((prev && prev.ex) || []).filter(e => e.t < ex[0].t - 30*60e3 && e.t > Date.now() - 2*DAY);
@@ -127,8 +159,8 @@ jobs:
             }
             console.log("ใช้โควตาไป", used, "คำขอ");
             if (!ok) { console.error("ดึงข้อมูลไม่ได้เลยสักสถานี (ดูข้อความด้านบน)"); process.exit(1); }
-            fs.writeFileSync("data/tides.json", JSON.stringify({updated: new Date().toISOString(), provider: "TideCheck", datum: DATUM, stations: out}));
-            console.log("บันทึก data/tides.json แล้ว", ok, "/", STATIONS.length, "สถานีใหม่");
+            fs.writeFileSync("data/tides.json", JSON.stringify({format: 2, updated: new Date().toISOString(), provider: "TideCheck", datum: DATUM, stations: out}));
+            console.log("บันทึก data/tides.json แล้ว: ดึงใหม่", ok, "สถานี รวม", out.length, "/", STATIONS.length);
           })();
           JS
       - name: บันทึกไฟล์ข้อมูล
