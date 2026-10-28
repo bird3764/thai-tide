@@ -114,6 +114,8 @@
 // จุดวัด: พิกัดชายฝั่ง/ในทะเลใกล้จุดนั้น (แก้ไข/เพิ่มได้)
 const STATIONS = [
   {n:"สมุทรปราการ (พระสมุทรเจดีย์)", lat:13.5976, lon:100.5972},
+  {n:"กรุงเทพฯ (คลองเตย)",       lat:13.70, lon:100.55},
+  {n:"ฉะเชิงเทรา (บางปะกง)",     lat:13.45, lon:100.97},
   {n:"ชลบุรี (ศรีราชา)",      lat:13.12, lon:100.90},
   {n:"พัทยา",                 lat:12.90, lon:100.83},
   {n:"ระยอง",                 lat:12.62, lon:101.35},
@@ -208,6 +210,24 @@ async function fetchTA(s){
   throw new Error(lastErr);
 }
 
+// ถ้าไฟล์มีค่ารายเวลา (ถี่ทุก ~15 นาที) ปนมา ให้ลดเหลือเฉพาะจุดน้ำขึ้น/น้ำลง
+function sanitize(ex){
+  if(ex.length<8) return ex;
+  const gaps=[]; for(let i=0;i<ex.length-1;i++) gaps.push(ex[i+1].t-ex[i].t);
+  gaps.sort((a,b)=>a-b);
+  if(gaps[gaps.length>>1] > 100*60e3) return ex;
+  const out=[];
+  for(let i=1;i<ex.length-1;i++){
+    const p=ex[i-1].h, b=ex[i].h, n=ex[i+1].h;
+    if((b>p&&b>=n)||(b<p&&b<=n)){
+      const hi=b>p, last=out[out.length-1];
+      if(last && last.hi===hi && ex[i].t-last.t<3*HR){ if(hi? b>last.h : b<last.h) out[out.length-1]={t:ex[i].t,h:b,hi}; }
+      else out.push({t:ex[i].t,h:b,hi});
+    }
+  }
+  return out.map(({t,h})=>({t,h}));
+}
+
 // ข้อมูลที่ GitHub Actions ดึงจาก TidesAtlas แล้วเก็บไว้ในไฟล์ data/tides.json (ไม่ต้องใช้ key ในเบราว์เซอร์)
 async function fetchStatic(i){
   const r = await fetch("data/tides.json?"+Math.floor(Date.now()/600000), {cache:"no-store"});
@@ -215,8 +235,8 @@ async function fetchStatic(i){
   const j = await r.json(), s = STATIONS[i];
   const st = (j.stations||[]).find(x=>Math.abs(x.lat-s.lat)<1e-6 && Math.abs(x.lon-s.lon)<1e-6);
   if(!st || !st.ex || st.ex.length<4) throw new Error("ไม่มีข้อมูลของสถานีนี้ในไฟล์");
-  const ex = cleanEx(st.ex.map(e=>({t:e.t+BK,h:e.h})));
-  if(ex[ex.length-1].t < bkNow()) throw new Error("ไฟล์ข้อมูลเก่าเกินไป");
+  const ex = sanitize(cleanEx(st.ex.map(e=>({t:e.t+BK,h:e.h}))));
+  if(ex.length<4 || ex[ex.length-1].t < bkNow()) throw new Error("ไฟล์ข้อมูลเก่าเกินไป");
   return {src:"tidesatlas", provider:j.provider||"TidesAtlas", ref:st.ref||"", datum:j.datum||"", ex, updated:j.updated};
 }
 
@@ -296,7 +316,7 @@ const fmt = v => D && D.signed ? f2(v) : v.toFixed(2);
 // ---------- โหลด ----------
 async function load(i, force){
   loading=true; showStatus("กำลังโหลดข้อมูล…");
-  const ck="tide_v2_"+i, today=midnight(bkNow());
+  const ck="tide_v3_"+STATIONS[i].lat+","+STATIONS[i].lon, today=midnight(bkNow());
   let cached=null; try{ cached=JSON.parse(lsGet(ck)||"null"); }catch(e){}
   const cacheOK = cached && cached.day0===today;
   if(cacheOK && cached.src==="tidesatlas" && !force && Date.now()-cached.fetched < 3600e3){ D=buildModel(cached); finish(); return; }
@@ -309,7 +329,7 @@ async function load(i, force){
     catch(e){ whyNot += (whyNot?" / ":"")+"เรียกตรงด้วย key: "+e.message; }
   }
   if(!raw){
-    note = "ข้อมูล TidesAtlas ยังไม่พร้อม ("+whyNot+") — แสดงข้อมูลสำรองจาก Open-Meteo (ความแม่นต่ำกว่า)";
+    note = "ข้อมูลพยากรณ์น้ำขึ้นน้ำลงยังไม่พร้อม ("+whyNot+") — แสดงข้อมูลสำรองจาก Open-Meteo (ความแม่นต่ำกว่า)";
     try{ raw = await fetchOM(STATIONS[i]); }
     catch(e){
       if(cacheOK){ D=buildModel(cached); finish("ออฟไลน์ — แสดงข้อมูลที่บันทึกไว้"); return; }
