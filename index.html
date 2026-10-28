@@ -1,366 +1,139 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเช็คระดับน้ำอุทกศาสตร์ไทย (Thai Hydrographic Model)</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        navy: {
-                            50: '#f0f4f8',
-                            100: '#d9e2ec',
-                            500: '#334e68',
-                            800: '#102a43',
-                            900: '#0b69a3',
-                        }
-                    }
+name: อัปเดตข้อมูลน้ำขึ้นน้ำลง (TideCheck)
+
+on:
+  schedule:
+    - cron: "10 17 * * *"   # 00:10 น. เวลาไทย วันละครั้ง
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/fetch-tides.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ดึงข้อมูลจาก TideCheck
+        env:
+          TIDECHECK_KEY: ${{ secrets.TIDECHECK_KEY }}
+        run: |
+          node <<'JS'
+          const fs = require("fs");
+          const STATIONS = [
+            {n:"สมุทรปราการ (พระสมุทรเจดีย์)", lat:13.5976, lon:100.5972},
+            {n:"ชลบุรี (ศรีราชา)",      lat:13.12, lon:100.90},
+            {n:"พัทยา",                 lat:12.90, lon:100.83},
+            {n:"ระยอง",                 lat:12.62, lon:101.35},
+            {n:"ตราด (แหลมงอบ)",        lat:12.10, lon:102.35},
+            {n:"หัวหิน",                lat:12.55, lon:100.05},
+            {n:"ประจวบคีรีขันธ์",        lat:11.80, lon: 99.85},
+            {n:"ชุมพร",                 lat:10.50, lon: 99.35},
+            {n:"สุราษฎร์ธานี (ดอนสัก)",  lat: 9.25, lon: 99.85},
+            {n:"นครศรีธรรมราช",          lat: 8.35, lon:100.35},
+            {n:"สงขลา",                 lat: 7.25, lon:100.65},
+            {n:"ปัตตานี",               lat: 7.00, lon:101.35},
+            {n:"นราธิวาส",              lat: 6.45, lon:102.00},
+            {n:"ระนอง",                 lat: 9.90, lon: 98.40},
+            {n:"พังงา",                 lat: 8.35, lon: 98.20},
+            {n:"ภูเก็ต",                lat: 7.85, lon: 98.20},
+            {n:"กระบี่ (อ่าวนาง)",       lat: 7.95, lon: 98.85},
+            {n:"สตูล (ปากบารา)",         lat: 6.80, lon: 99.60},
+          ];
+          const KEY = process.env.TIDECHECK_KEY;
+          const BASE = process.env.TC_BASE || "https://tidecheck.com/api";
+          const DATUM = process.env.TC_DATUM || "LAT";
+          const MAXREQ = +(process.env.MAX_REQUESTS || 45);   // กันไม่ให้เกินโควตาฟรี 50 ต่อวัน
+          if (!KEY) { console.error("ไม่พบ secret TIDECHECK_KEY"); process.exit(1); }
+          const DAY = 864e5;
+          let used = 0;
+
+          async function api(path) {
+            if (used >= MAXREQ) throw new Error("ถึงเพดาน " + MAXREQ + " คำขอแล้ว หยุดเพื่อไม่ให้เกินโควตา");
+            used++;
+            const r = await fetch(BASE + path, {headers: {"X-API-Key": KEY}});
+            const txt = await r.text();
+            if (!r.ok) throw new Error("HTTP " + r.status + " " + txt.slice(0, 200));
+            try { return JSON.parse(txt); } catch (e) { throw new Error("อ่าน JSON ไม่ได้: " + txt.slice(0, 200)); }
+          }
+          function parseTime(s) {
+            if (typeof s === "number") return s > 1e12 ? s : s * 1000;
+            s = String(s).trim().replace(" ", "T");
+            const tz = /(Z|[+-]\d{2}:?\d{2})$/i.test(s.slice(10));
+            return Date.parse(tz ? s : s + "Z");
+          }
+          function collect(o, acc) {
+            if (Array.isArray(o)) { o.forEach(x => collect(x, acc)); return; }
+            if (o && typeof o === "object") {
+              const h = o.height ?? o.height_m, tm = o.time ?? o.datetime ?? o.dt;
+              if (typeof h === "number" && tm != null) { const t = parseTime(tm); if (isFinite(t)) acc.push({t, h}); return; }
+              Object.values(o).forEach(v => collect(v, acc));
+            }
+          }
+          function dedupe(a) {
+            a.sort((x, y) => x.t - y.t);
+            const out = [];
+            a.forEach(e => { if (!out.length || e.t - out[out.length-1].t > 60000) out.push(e); });
+            return out;
+          }
+          function findStations(o, acc) {
+            if (Array.isArray(o)) { o.forEach(x => findStations(x, acc)); return; }
+            if (o && typeof o === "object") {
+              if (o.id != null && o.name != null) acc.push(o);
+              Object.values(o).forEach(v => { if (v && typeof v === "object") findStations(v, acc); });
+            }
+          }
+          const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return d; } };
+
+          (async () => {
+            fs.mkdirSync("data", {recursive: true});
+            const map = readJson("data/stations.json", {});          // จำสถานีอ้างอิงไว้ จะได้ไม่เสียโควตาหาซ้ำ
+            const old = readJson("data/tides.json", {stations: []});
+            const out = []; let ok = 0;
+
+            for (const s of STATIONS) {
+              const key = s.lat + "," + s.lon;
+              const prev = (old.stations || []).find(x => x.lat === s.lat && x.lon === s.lon);
+              try {
+                if (!map[key]) {
+                  const j = await api(`/stations/nearest?lat=${s.lat}&lng=${s.lon}`);
+                  const found = []; findStations(j, found);
+                  if (!found.length) throw new Error("หาสถานีใกล้ไม่เจอ: " + JSON.stringify(j).slice(0, 300));
+                  const dist = x => x.distance ?? x.distanceKm ?? x.distance_km ?? x.dist ?? Infinity;
+                  found.sort((a, b) => dist(a) - dist(b));
+                  const f = found[0];
+                  map[key] = {id: f.id, name: f.name, distance: isFinite(dist(f)) ? dist(f) : null};
+                  fs.writeFileSync("data/stations.json", JSON.stringify(map, null, 1));
+                  console.log("สถานีอ้างอิง", s.n, "->", f.name, "(id " + f.id + ", ห่าง", map[key].distance, ")");
                 }
+                const m = map[key];
+                const j = await api(`/station/${encodeURIComponent(m.id)}/tides?days=14&datum=${DATUM}`);
+                const acc = []; collect(j, acc);
+                const ex = dedupe(acc);
+                if (ex.length < 6) throw new Error("ได้จุดน้ำขึ้นลงน้อยเกินไป: " + JSON.stringify(j).slice(0, 300));
+                // เก็บข้อมูลเมื่อวานจากรอบก่อนไว้ เพราะแพ็กเกจฟรีขอย้อนหลังไม่ได้ (ใช้วาดกราฟช่วงเช้ามืดของวันนี้)
+                const keepOld = ((prev && prev.ex) || []).filter(e => e.t < ex[0].t - 30*60e3 && e.t > Date.now() - 2*DAY);
+                out.push({n: s.n, lat: s.lat, lon: s.lon,
+                          ref: m.name + (m.distance != null ? " (ห่าง " + Math.round(m.distance * 10) / 10 + " กม.)" : ""),
+                          ex: keepOld.concat(ex)});
+                ok++; console.log("OK", s.n, ex.length, "จุด");
+              } catch (e) {
+                console.log("ล้มเหลว", s.n, "-", e.message);
+                if (prev) out.push(prev);                               // ใช้ข้อมูลเดิมไปก่อน
+              }
+              await new Promise(r => setTimeout(r, 500));
             }
-        }
-    </script>
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        body { font-family: 'Kanit', sans-serif; }
-    </style>
-</head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
-
-    <!-- Header / Navbar -->
-    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 border-b border-slate-800">
-        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center space-x-2.5">
-                <div class="p-2 bg-blue-600 rounded-xl text-white">
-                    <i class="fa-solid fa-water text-lg"></i>
-                </div>
-                <div>
-                    <h1 class="text-base sm:text-lg font-bold leading-tight">เช็คระดับน้ำชายฝั่งและเจ้าพระยา</h1>
-                    <p class="text-[10px] text-slate-400">Thai Hydrographic Model (Offline Ready)</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center space-x-2">
-                <button id="themeToggle" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
-                    <i class="fa-solid fa-moon text-base" id="themeIcon"></i>
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content Container -->
-    <main class="max-w-4xl mx-auto px-3 sm:px-4 py-4 space-y-4">
-
-        <!-- Section: ตัวเลือกสถานีและวันที่ -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-                    <i class="fa-solid fa-location-dot text-blue-500 mr-1"></i> เลือกสถานีหลักในประเทศไทย
-                </label>
-                <select id="stationSelect" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="samutprakan">ป้อมพระจุลจอมเกล้า (สมุทรปราการ)</option>
-                    <option value="bangkok" selected>กองบัญชาการกองทัพเรือ / สะพานพุทธ (กรุงเทพฯ)</option>
-                    <option value="bangpakong">ปากแม่น้ำบางปะกง (ฉะเชิงเทรา)</option>
-                    <option value="chonburi">เกาะลอย / ศรีราชา (ชลบุรี)</option>
-                    <option value="pattaya">พัทยา (ชลบุรี)</option>
-                    <option value="laemchabang">แหลมฉบัง (ชลบุรี)</option>
-                    <option value="huahin">หัวหิน (ประจวบคีรีขันธ์)</option>
-                    <option value="phuket">อ่าวฉลอง (ภูเก็ต)</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-                    <i class="fa-regular fa-calendar-days text-blue-500 mr-1"></i> เลือกวันที่
-                </label>
-                <input type="date" id="dateSelect" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-        </div>
-
-        <!-- Section: Cards แสดงเวลาน้ำขึ้น-น้ำลง -->
-        <div class="grid grid-cols-2 gap-3" id="tideCardsContainer">
-            <!-- Populated dynamically -->
-        </div>
-
-        <!-- Section: การ์ดสรุปสถานะปัจจุบันและระดับวิกฤต -->
-        <div class="grid grid-cols-2 gap-3">
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
-                <div>
-                    <p class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับน้ำตอนนี้</p>
-                    <h3 class="text-xl sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5" id="currentLevel">-- m</h3>
-                </div>
-                <p class="text-[11px] text-slate-500 mt-2" id="currentTrendText">สถานะ: --</p>
-            </div>
-
-            <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
-                <div>
-                    <p class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">ระดับวิกฤตตลิ่ง</p>
-                    <h3 class="text-xl sm:text-2xl font-extrabold text-red-600 dark:text-red-400 mt-0.5" id="thresholdLevel">2.20 m</h3>
-                </div>
-                <p class="text-[11px] text-slate-500 mt-2">อ้างอิงระดับ รทก.</p>
-            </div>
-        </div>
-
-        <!-- Section: กราฟระดับน้ำรายชั่วโมง -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
-            <div class="flex justify-between items-center mb-3">
-                <h2 class="text-sm sm:text-base font-bold flex items-center">
-                    <i class="fa-solid fa-chart-line text-blue-500 mr-1.5"></i> กราฟระดับน้ำ (24 ชม.)
-                </h2>
-                <span class="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold px-2 py-0.5 rounded-full">
-                    ม.รทก.
-                </span>
-            </div>
-            <div class="relative h-64 sm:h-80 w-full">
-                <canvas id="tideChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Section: ข้อมูลแหล่งที่มา -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-            <div class="bg-blue-500/10 border-l-4 border-blue-500 p-3 rounded-r-lg flex items-center justify-between text-xs">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-circle-check text-blue-500 text-sm"></i>
-                    <span class="font-medium">แหล่งข้อมูล: <b>Thai Hydrographic Harmonic Model (แม่นยำสูง / ไม่ใช้เน็ต)</b></span>
-                </div>
-                <span class="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">FREE 100%</span>
-            </div>
-        </div>
-
-    </main>
-
-    <script>
-        // ฐานข้อมูลสถานีพร้อมค่าพารามิเตอร์ทางอุทกศาสตร์ (อ้างอิงกรมอุทกศาสตร์ กองทัพเรือ)
-        const stations = {
-            samutprakan: { name: "ป้อมพระจุลจอมเกล้า (สมุทรปราการ)", threshold: 3.40, baseHigh: 3.25, baseLow: 0.85, timeOffset: 0.2 },
-            bangkok: { name: "บก.กองทัพเรือ / สะพานพุทธ (กรุงเทพฯ)", threshold: 2.20, baseHigh: 2.10, baseLow: 0.45, timeOffset: 1.25 },
-            bangpakong: { name: "ปากแม่น้ำบางปะกง (ฉะเชิงเทรา)", threshold: 3.20, baseHigh: 3.05, baseLow: 0.95, timeOffset: 0.5 },
-            chonburi: { name: "เกาะลอย / ศรีราชา (ชลบุรี)", threshold: 3.80, baseHigh: 3.55, baseLow: 1.15, timeOffset: -0.4 },
-            pattaya: { name: "พัทยา (ชลบุรี)", threshold: 3.50, baseHigh: 3.20, baseLow: 1.05, timeOffset: -0.5 },
-            laemchabang: { name: "แหลมฉบัง (ชลบุรี)", threshold: 3.60, baseHigh: 3.35, baseLow: 1.10, timeOffset: -0.45 },
-            huahin: { name: "หัวหิน (ประจวบคีรีขันธ์)", threshold: 3.20, baseHigh: 2.95, baseLow: 0.85, timeOffset: -0.8 },
-            phuket: { name: "อ่าวฉลอง (ภูเก็ต)", threshold: 3.30, baseHigh: 3.05, baseLow: 0.75, timeOffset: 2.5 }
-        };
-
-        const stationSelect = document.getElementById('stationSelect');
-        const dateSelect = document.getElementById('dateSelect');
-        const themeToggle = document.getElementById('themeToggle');
-        const themeIcon = document.getElementById('themeIcon');
-
-        let chartInstance = null;
-        const today = new Date().toISOString().split('T')[0];
-        dateSelect.value = today;
-
-        // ฟังก์ชันคำนวณระดับน้ำจำลองตามสูตรฮาร์โมนิก (Harmonic Tide Prediction)
-        function calculateTideModel(dateStr, stationKey) {
-            const st = stations[stationKey];
-            const date = new Date(dateStr);
-            const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
-            
-            let hours = [];
-            let levels = [];
-            let tideEvents = [];
-
-            // คำนวณราย 24 ชั่วโมง
-            for (let h = 0; h < 24; h++) {
-                const t = h - st.timeOffset;
-                // M2 constituent (Semi-diurnal: ~12.42 hrs) + K1/O1 constituent (Diurnal adjustment + seasonal solar effect)
-                const tideSemi = Math.sin((t / 12.42) * 2 * Math.PI);
-                const tideDiurnal = 0.25 * Math.sin((t / 23.93) * 2 * Math.PI + (dayOfYear * 0.0172));
-                
-                const mid = (st.baseHigh + st.baseLow) / 2;
-                const amp = (st.baseHigh - st.baseLow) / 2;
-                const level = mid + amp * (tideSemi * 0.82 + tideDiurnal * 0.18);
-
-                const timeStr = `${String(h).padStart(2, '0')}:00`;
-                hours.push(timeStr);
-                levels.push(parseFloat(level.toFixed(2)));
-            }
-
-            // หาจุด Peak น้ำขึ้นสูงสุด และ Low น้ำลงต่ำสุดจากโมเดลรายชั่วโมง
-            let peaks = [];
-            for (let i = 1; i < 23; i++) {
-                if (levels[i] > levels[i-1] && levels[i] > levels[i+1]) {
-                    peaks.push({ hour: i, height: levels[i], type: 'high' });
-                } else if (levels[i] < levels[i-1] && levels[i] < levels[i+1]) {
-                    peaks.push({ hour: i, height: levels[i], type: 'low' });
-                }
-            }
-
-            // จัดรูปแบบข้อมูล Event น้ำขึ้น-ลง
-            if (peaks.length > 0) {
-                tideEvents = peaks.map(p => ({
-                    time: `${String(p.hour).padStart(2, '0')}:30`,
-                    height: p.height,
-                    type: p.type
-                }));
-            } else {
-                // Fallback ค่ามาตรฐานถ้าจุดตัดไม่ครบ
-                tideEvents = [
-                    { time: "06:15", height: st.baseHigh, type: "high" },
-                    { time: "12:30", height: st.baseLow, type: "low" },
-                    { time: "18:40", height: st.baseHigh * 0.95, type: "high" },
-                    { time: "23:50", height: st.baseLow * 1.05, type: "low" }
-                ];
-            }
-
-            return { tideEvents, hours, levels, threshold: st.threshold };
-        }
-
-        function updateDashboard() {
-            const stationKey = stationSelect.value;
-            const dateStr = dateSelect.value;
-            const { tideEvents, hours, levels, threshold } = calculateTideModel(dateStr, stationKey);
-
-            if (!levels || levels.length === 0) return;
-
-            // Render Tide Cards (น้ำขึ้นสูงสุด / น้ำลงต่ำสุด)
-            const container = document.getElementById('tideCardsContainer');
-            container.innerHTML = '';
-            
-            tideEvents.forEach(ev => {
-                const isHigh = ev.type === 'high';
-                const card = `
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">${isHigh ? 'น้ำขึ้นสูงสุด' : 'น้ำลงต่ำสุด'}</p>
-                                <h3 class="text-xl sm:text-2xl font-extrabold ${isHigh ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} mt-0.5">${ev.height.toFixed(2)}m</h3>
-                            </div>
-                            <div class="p-2 ${isHigh ? 'bg-emerald-50 dark:bg-slate-700 text-emerald-500' : 'bg-amber-50 dark:bg-slate-700 text-amber-500'} rounded-xl">
-                                <i class="fa-solid ${isHigh ? 'fa-arrow-up-long' : 'fa-arrow-down-long'} text-sm"></i>
-                            </div>
-                        </div>
-                        <p class="text-[11px] text-slate-500 mt-2">เวลา: <span class="font-bold text-slate-700 dark:text-slate-300 text-xs">${ev.time} น.</span></p>
-                    </div>
-                `;
-                container.innerHTML += card;
-            });
-
-            document.getElementById('thresholdLevel').innerText = `${threshold.toFixed(2)} m`;
-
-            // ระดับน้ำปัจจุบัน (คำนวณตามเวลาจริงของเครื่อง)
-            const currentHour = new Date().getHours();
-            const currentLvl = levels[currentHour] || levels[0];
-            const nextLvl = levels[(currentHour + 1) % 24] || currentLvl;
-            const isRising = nextLvl > currentLvl;
-
-            document.getElementById('currentLevel').innerText = `${currentLvl.toFixed(2)} m`;
-            document.getElementById('currentTrendText').innerText = `สถานะ: น้ำกำลัง${isRising ? 'ขึ้น ⬆' : 'ลง ⬇'}`;
-
-            renderChart(hours, levels, threshold);
-        }
-
-        // Plugin ขีดเส้นสีแดงแสดงเวลาปัจจุบันบนกราฟ
-        const currentLinePlugin = {
-            id: 'currentLinePlugin',
-            afterDraw: (chart) => {
-                const dateSelectVal = document.getElementById('dateSelect').value;
-                const todayStr = new Date().toISOString().split('T')[0];
-                if (dateSelectVal !== todayStr) return;
-
-                const ctx = chart.ctx;
-                const currentHour = new Date().getHours();
-                const timeString = `${String(currentHour).padStart(2, '0')}:00`;
-                const xIndex = chart.data.labels.indexOf(timeString);
-
-                if (xIndex !== -1) {
-                    const meta = chart.getDatasetMeta(0);
-                    if (meta && meta.data[xIndex]) {
-                        const point = meta.data[xIndex];
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.moveTo(point.x, chart.chartArea.top);
-                        ctx.lineTo(point.x, chart.chartArea.bottom);
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = '#ef4444';
-                        ctx.setLineDash([4, 4]);
-                        ctx.stroke();
-                        ctx.restore();
-
-                        ctx.save();
-                        ctx.fillStyle = '#ef4444';
-                        ctx.font = 'bold 10px Kanit';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('🔴 ปัจจุบัน', point.x, chart.chartArea.top - 6);
-                        ctx.restore();
-                    }
-                }
-            }
-        };
-
-        function renderChart(labels, data, threshold) {
-            const ctx = document.getElementById('tideChart').getContext('2d');
-            if (chartInstance) chartInstance.destroy();
-
-            const isDark = document.documentElement.classList.contains('dark');
-
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'ระดับน้ำ (ม.รทก.)',
-                            data: data,
-                            borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.15)',
-                            borderWidth: 2.5,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 3,
-                            pointHoverRadius: 5
-                        },
-                        {
-                            label: 'ระดับวิกฤตตลิ่ง',
-                            data: Array(labels.length).fill(threshold),
-                            borderColor: '#ef4444',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: isDark ? '#cbd5e1' : '#475569', font: { family: 'Kanit', size: 11 } } }
-                    },
-                    scales: {
-                        x: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit', size: 10 } } },
-                        y: { grid: { color: isDark ? '#334155' : '#e2e8f0' }, ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { family: 'Kanit', size: 10 } } }
-                    }
-                },
-                plugins: [currentLinePlugin]
-            });
-        }
-
-        themeToggle.addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-            const isDark = document.documentElement.classList.contains('dark');
-            themeIcon.className = isDark ? 'fa-solid fa-sun text-base' : 'fa-solid fa-moon text-base';
-            updateDashboard();
-        });
-
-        stationSelect.addEventListener('change', updateDashboard);
-        dateSelect.addEventListener('change', updateDashboard);
-
-        // โหลดข้อมูลเมื่อเปิดหน้าเว็บครั้งแรก
-        updateDashboard();
-    </script>
-</body>
-</html>
+            console.log("ใช้โควตาไป", used, "คำขอ");
+            if (!ok) { console.error("ดึงข้อมูลไม่ได้เลยสักสถานี (ดูข้อความด้านบน)"); process.exit(1); }
+            fs.writeFileSync("data/tides.json", JSON.stringify({updated: new Date().toISOString(), provider: "TideCheck", datum: DATUM, stations: out}));
+            console.log("บันทึก data/tides.json แล้ว", ok, "/", STATIONS.length, "สถานีใหม่");
+          })();
+          JS
+      - name: บันทึกไฟล์ข้อมูล
+        run: |
+          git config user.name "tide-bot"
+          git config user.email "tide-bot@users.noreply.github.com"
+          git add data/tides.json data/stations.json
+          git diff --cached --quiet || (git commit -m "Update tide data" && git push)
