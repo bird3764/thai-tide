@@ -1,0 +1,139 @@
+name: อัปเดตข้อมูลน้ำขึ้นน้ำลง (TideCheck)
+
+on:
+  schedule:
+    - cron: "10 17 * * *"   # 00:10 น. เวลาไทย วันละครั้ง
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/fetch-tides.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ดึงข้อมูลจาก TideCheck
+        env:
+          TIDECHECK_KEY: ${{ secrets.TIDECHECK_KEY }}
+        run: |
+          node <<'JS'
+          const fs = require("fs");
+          const STATIONS = [
+            {n:"สมุทรปราการ (พระสมุทรเจดีย์)", lat:13.5976, lon:100.5972},
+            {n:"ชลบุรี (ศรีราชา)",      lat:13.12, lon:100.90},
+            {n:"พัทยา",                 lat:12.90, lon:100.83},
+            {n:"ระยอง",                 lat:12.62, lon:101.35},
+            {n:"ตราด (แหลมงอบ)",        lat:12.10, lon:102.35},
+            {n:"หัวหิน",                lat:12.55, lon:100.05},
+            {n:"ประจวบคีรีขันธ์",        lat:11.80, lon: 99.85},
+            {n:"ชุมพร",                 lat:10.50, lon: 99.35},
+            {n:"สุราษฎร์ธานี (ดอนสัก)",  lat: 9.25, lon: 99.85},
+            {n:"นครศรีธรรมราช",          lat: 8.35, lon:100.35},
+            {n:"สงขลา",                 lat: 7.25, lon:100.65},
+            {n:"ปัตตานี",               lat: 7.00, lon:101.35},
+            {n:"นราธิวาส",              lat: 6.45, lon:102.00},
+            {n:"ระนอง",                 lat: 9.90, lon: 98.40},
+            {n:"พังงา",                 lat: 8.35, lon: 98.20},
+            {n:"ภูเก็ต",                lat: 7.85, lon: 98.20},
+            {n:"กระบี่ (อ่าวนาง)",       lat: 7.95, lon: 98.85},
+            {n:"สตูล (ปากบารา)",         lat: 6.80, lon: 99.60},
+          ];
+          const KEY = process.env.TIDECHECK_KEY;
+          const BASE = process.env.TC_BASE || "https://tidecheck.com/api";
+          const DATUM = process.env.TC_DATUM || "LAT";
+          const MAXREQ = +(process.env.MAX_REQUESTS || 45);   // กันไม่ให้เกินโควตาฟรี 50 ต่อวัน
+          if (!KEY) { console.error("ไม่พบ secret TIDECHECK_KEY"); process.exit(1); }
+          const DAY = 864e5;
+          let used = 0;
+
+          async function api(path) {
+            if (used >= MAXREQ) throw new Error("ถึงเพดาน " + MAXREQ + " คำขอแล้ว หยุดเพื่อไม่ให้เกินโควตา");
+            used++;
+            const r = await fetch(BASE + path, {headers: {"X-API-Key": KEY}});
+            const txt = await r.text();
+            if (!r.ok) throw new Error("HTTP " + r.status + " " + txt.slice(0, 200));
+            try { return JSON.parse(txt); } catch (e) { throw new Error("อ่าน JSON ไม่ได้: " + txt.slice(0, 200)); }
+          }
+          function parseTime(s) {
+            if (typeof s === "number") return s > 1e12 ? s : s * 1000;
+            s = String(s).trim().replace(" ", "T");
+            const tz = /(Z|[+-]\d{2}:?\d{2})$/i.test(s.slice(10));
+            return Date.parse(tz ? s : s + "Z");
+          }
+          function collect(o, acc) {
+            if (Array.isArray(o)) { o.forEach(x => collect(x, acc)); return; }
+            if (o && typeof o === "object") {
+              const h = o.height ?? o.height_m, tm = o.time ?? o.datetime ?? o.dt;
+              if (typeof h === "number" && tm != null) { const t = parseTime(tm); if (isFinite(t)) acc.push({t, h}); return; }
+              Object.values(o).forEach(v => collect(v, acc));
+            }
+          }
+          function dedupe(a) {
+            a.sort((x, y) => x.t - y.t);
+            const out = [];
+            a.forEach(e => { if (!out.length || e.t - out[out.length-1].t > 60000) out.push(e); });
+            return out;
+          }
+          function findStations(o, acc) {
+            if (Array.isArray(o)) { o.forEach(x => findStations(x, acc)); return; }
+            if (o && typeof o === "object") {
+              if (o.id != null && o.name != null) acc.push(o);
+              Object.values(o).forEach(v => { if (v && typeof v === "object") findStations(v, acc); });
+            }
+          }
+          const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return d; } };
+
+          (async () => {
+            fs.mkdirSync("data", {recursive: true});
+            const map = readJson("data/stations.json", {});          // จำสถานีอ้างอิงไว้ จะได้ไม่เสียโควตาหาซ้ำ
+            const old = readJson("data/tides.json", {stations: []});
+            const out = []; let ok = 0;
+
+            for (const s of STATIONS) {
+              const key = s.lat + "," + s.lon;
+              const prev = (old.stations || []).find(x => x.lat === s.lat && x.lon === s.lon);
+              try {
+                if (!map[key]) {
+                  const j = await api(`/stations/nearest?lat=${s.lat}&lng=${s.lon}`);
+                  const found = []; findStations(j, found);
+                  if (!found.length) throw new Error("หาสถานีใกล้ไม่เจอ: " + JSON.stringify(j).slice(0, 300));
+                  const dist = x => x.distance ?? x.distanceKm ?? x.distance_km ?? x.dist ?? Infinity;
+                  found.sort((a, b) => dist(a) - dist(b));
+                  const f = found[0];
+                  map[key] = {id: f.id, name: f.name, distance: isFinite(dist(f)) ? dist(f) : null};
+                  fs.writeFileSync("data/stations.json", JSON.stringify(map, null, 1));
+                  console.log("สถานีอ้างอิง", s.n, "->", f.name, "(id " + f.id + ", ห่าง", map[key].distance, ")");
+                }
+                const m = map[key];
+                const j = await api(`/station/${encodeURIComponent(m.id)}/tides?days=14&datum=${DATUM}`);
+                const acc = []; collect(j, acc);
+                const ex = dedupe(acc);
+                if (ex.length < 6) throw new Error("ได้จุดน้ำขึ้นลงน้อยเกินไป: " + JSON.stringify(j).slice(0, 300));
+                // เก็บข้อมูลเมื่อวานจากรอบก่อนไว้ เพราะแพ็กเกจฟรีขอย้อนหลังไม่ได้ (ใช้วาดกราฟช่วงเช้ามืดของวันนี้)
+                const keepOld = ((prev && prev.ex) || []).filter(e => e.t < ex[0].t - 30*60e3 && e.t > Date.now() - 2*DAY);
+                out.push({n: s.n, lat: s.lat, lon: s.lon,
+                          ref: m.name + (m.distance != null ? " (ห่าง " + Math.round(m.distance * 10) / 10 + " กม.)" : ""),
+                          ex: keepOld.concat(ex)});
+                ok++; console.log("OK", s.n, ex.length, "จุด");
+              } catch (e) {
+                console.log("ล้มเหลว", s.n, "-", e.message);
+                if (prev) out.push(prev);                               // ใช้ข้อมูลเดิมไปก่อน
+              }
+              await new Promise(r => setTimeout(r, 500));
+            }
+            console.log("ใช้โควตาไป", used, "คำขอ");
+            if (!ok) { console.error("ดึงข้อมูลไม่ได้เลยสักสถานี (ดูข้อความด้านบน)"); process.exit(1); }
+            fs.writeFileSync("data/tides.json", JSON.stringify({updated: new Date().toISOString(), provider: "TideCheck", datum: DATUM, stations: out}));
+            console.log("บันทึก data/tides.json แล้ว", ok, "/", STATIONS.length, "สถานีใหม่");
+          })();
+          JS
+      - name: บันทึกไฟล์ข้อมูล
+        run: |
+          git config user.name "tide-bot"
+          git config user.email "tide-bot@users.noreply.github.com"
+          git add data/tides.json data/stations.json
+          git diff --cached --quiet || (git commit -m "Update tide data" && git push)
