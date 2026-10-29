@@ -98,5 +98,15 @@
   "id": "fes2022-chon-buri",
   "name": "Chon Buri",
   "distance": 6
+ },
+ "13.85,100.51": {
+  "id": "fes2022-mueang-nonthaburi",
+  "name": "Mueang Nonthaburi",
+  "distance": 6
+ },
+ "13.08,100.07": {
+  "id": "fes2022-phetchaburi",
+  "name": "Phetchaburi",
+  "distance": 19
  }
 }
