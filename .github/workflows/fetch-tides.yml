@@ -121,7 +121,7 @@ jobs:
             const map = readJson("data/stations.json", {});          // จำสถานีอ้างอิงไว้ จะได้ไม่เสียโควตาหาซ้ำ
             let old = readJson("data/tides.json", {stations: []});
             if (old.format !== 2) old = {stations: []};              // ไฟล์จากเวอร์ชันเก่า (มีจุดซ้ำซ้อน) ไม่เอา
-            const out = []; let ok = 0;
+            const out = []; let ok = 0, kept = 0;
 
             for (const s of STATIONS) {
               const key = s.lat + "," + s.lon;
@@ -129,7 +129,7 @@ jobs:
               // พยากรณ์ล่วงหน้า 14 วัน ถ้าสถานีนี้ยังมีข้อมูลเหลือเกิน 8 วัน ไม่ต้องเสียโควตาดึงใหม่
               if (prev && prev.ex && prev.ex.length && prev.ex[prev.ex.length-1].t > Date.now() + 8*DAY) {
                 out.push(Object.assign({}, prev, {ex: prev.ex.filter(e => e.t > Date.now() - 2*DAY)}));
-                console.log("ข้าม", s.n, "(ข้อมูลเดิมยังพอ)"); continue;
+                console.log("ข้าม", s.n, "(ข้อมูลเดิมยังพอ)"); kept++; continue;
               }
               try {
                 if (!map[key]) {
@@ -160,7 +160,7 @@ jobs:
               await new Promise(r => setTimeout(r, 500));
             }
             console.log("ใช้โควตาไป", used, "คำขอ");
-            if (!ok) { console.error("ดึงข้อมูลไม่ได้เลยสักสถานี (ดูข้อความด้านบน)"); process.exit(1); }
+            if (!ok && !kept) { console.error("ดึงข้อมูลไม่ได้เลยสักสถานี (ดูข้อความด้านบน)"); process.exit(1); }
             fs.writeFileSync("data/tides.json", JSON.stringify({format: 2, updated: new Date().toISOString(), provider: "TideCheck", datum: DATUM, stations: out}));
             console.log("บันทึก data/tides.json แล้ว: ดึงใหม่", ok, "สถานี รวม", out.length, "/", STATIONS.length);
           })();
